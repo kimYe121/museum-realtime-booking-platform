@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>博物馆票务预约实时监控平台</title>
+<script src="/static/echarts.min.js"></script>
+<style>
+  :root {
+    --gold: #d8b980;          /* 鎏金 */
+    --gold-bright: #efdcae;   /* 亮金 */
+    --gold-dim: rgba(216,185,128,.35);
+    --vermilion: #e0644a;     /* 朱红 */
+    --jade: #63c8be;          /* 青玉 */
+    --ink: rgba(7,12,24,.72); /* 玄色面板 */
+    --text: #e9e2cf;          /* 米白 */
+    --text-dim: #9aa7c2;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { width:100%; min-height:100%; }
+  body {
+    font-family:"KaiTi","STKaiti","SimSun",serif;
+    color:var(--text);
+    background:
+      linear-gradient(rgba(5,9,20,.88) 0%, rgba(5,9,20,.74) 55%, rgba(5,9,20,.9) 100%),
+      url("/static/bg_palace.jpg") center/cover no-repeat fixed;
+    overflow-x:hidden;
+  }
+
+  /* ===================== 头部 ===================== */
+  header { padding:14px 30px 4px; text-align:center; position:relative; }
+  header h1 {
+    font-size:32px; letter-spacing:10px; font-weight:normal; color:var(--gold-bright);
+    text-shadow:0 0 24px rgba(216,185,128,.35);
+  }
+  header h1 .seal {
+    display:inline-block; background:var(--vermilion); color:#fff; font-size:15px;
+    letter-spacing:2px; padding:3px 8px; border-radius:3px; vertical-align:middle;
+    margin-right:14px; box-shadow:0 0 12px rgba(224,100,74,.5); font-family:"SimSun",serif;
+  }
+  header .sub { margin-top:5px; font-size:13px; color:var(--gold); letter-spacing:5px; }
+  header .rule {
+    height:1px; margin:10px auto 0; width:78%;
+    background:linear-gradient(90deg,transparent,var(--gold),transparent);
+  }
+  header .time {
+    position:absolute; right:30px; top:20px; font-size:13px; color:var(--text-dim);
+    letter-spacing:1px; text-align:right; line-height:1.7;
+  }
+  header .fullscreen-btn {
+    position:absolute; left:30px; top:24px; font-size:13px; letter-spacing:2px;
+    color:var(--gold); background:transparent; border:1px solid var(--gold-dim);
+    padding:5px 14px; cursor:pointer; border-radius:2px; font-family:inherit;
+  }
+  header .fullscreen-btn:hover { background:rgba(216,185,128,.15); }
+
+  /* ===================== 页签导航 ===================== */
+  nav { display:flex; justify-content:center; gap:10px; padding:12px 0 4px; }
+  nav .tab {
+    padding:7px 34px; font-size:16px; letter-spacing:4px; cursor:pointer;
+    color:var(--text-dim); border:1px solid transparent; border-radius:2px;
+    transition:all .25s; user-select:none;
+  }
+  nav .tab:hover { color:var(--gold-bright); }
+  nav .tab.active {
+    color:var(--gold-bright); border-color:var(--gold-dim);
+    background:linear-gradient(180deg, rgba(216,185,128,.14), rgba(216,185,128,.04));
+    box-shadow:0 0 16px rgba(216,185,128,.12) inset;
+  }
+
+  /* ===================== 页面容器 ===================== */
+  .page { display:none; }
+  .page.active { display:block; animation:fadein .4s; }
+  @keyframes fadein { from {opacity:0; transform:translateY(6px);} to {opacity:1;} }
+
+  /* ===================== 指标卡 ===================== */
+  .cards { display:flex; gap:16px; padding:10px 30px 2px; }
+  .card {
+    flex:1; position:relative; background:var(--ink); padding:12px 10px 10px;
+    text-align:center; border:1px solid var(--gold-dim); border-radius:2px;
+    backdrop-filter:blur(4px);
+  }
+  .card .label { font-size:14px; color:var(--text-dim); letter-spacing:2px; }
+  .card .value { font-size:32px; margin-top:6px; color:var(--gold-bright);
+    font-family:"Times New Roman",serif; text-shadow:0 0 14px rgba(216,185,128,.3); }
+  .card.warn .value { color:var(--vermilion); text-shadow:0 0 14px rgba(224,100,74,.4); }
+
+  /* ===================== 面板(中式角框) ===================== */
+  .grid { display:grid; grid-template-columns:repeat(12,1fr); gap:14px; padding:12px 30px 24px; }
+  .panel {
+    position:relative; background:var(--ink); border:1px solid var(--gold-dim);
+    border-radius:2px; padding:10px 12px; backdrop-filter:blur(4px);
+  }
+  .panel::before, .panel::after, .card::before, .card::after {
+    content:""; position:absolute; width:14px; height:14px; pointer-events:none;
+  }
+  .panel::before, .card::before { top:-1px; left:-1px; border-top:2px solid var(--gold); border-left:2px solid var(--gold); }
+  .panel::after, .card::after { bottom:-1px; right:-1px; border-bottom:2px solid var(--gold); border-right:2px solid var(--gold); }
+  .panel h3 {
+    font-size:16px; font-weight:normal; color:var(--gold); letter-spacing:3px;
+    padding:2px 4px 8px; margin-bottom:4px;
+    border-bottom:1px solid rgba(216,185,128,.18);
+  }
+  .panel h3::before { content:"◆ "; color:var(--vermilion); font-size:11px; }
+  .span2 { grid-column:span 2; } .span3 { grid-column:span 3; } .span4 { grid-column:span 4; }
+  .span5 { grid-column:span 5; } .span6 { grid-column:span 6; } .span7 { grid-column:span 7; }
+  .span8 { grid-column:span 8; } .span12 { grid-column:span 12; }
+  .chart { width:100%; height:252px; }
+  .chart-lg { width:100%; height:300px; }
+  .chart-xl { width:100%; height:340px; }
+
+  /* ===================== 表格 ===================== */
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th,td { padding:6px 8px; text-align:left; border-bottom:1px solid rgba(216,185,128,.12); }
+  th { color:var(--gold); font-weight:normal; letter-spacing:1px; white-space:nowrap; }
+  td { color:var(--text); font-family:"SimSun",serif; }
+  .lv-严重 { color:#ff5a4d; font-weight:bold; } .lv-高 { color:#ff9a3d; }
+  .lv-中 { color:#ffd54f; } .lv-低 { color:var(--text-dim); }
+  .btn {
+    background:transparent; color:var(--gold); border:1px solid var(--gold-dim);
+    border-radius:2px; padding:2px 10px; cursor:pointer; font-size:12px; font-family:inherit;
+  }
+  .btn:hover { background:rgba(216,185,128,.15); border-color:var(--gold); }
+
+  /* ===================== 告警横幅 ===================== */
+  #alert-banner {
+    position:fixed; top:0; left:0; right:0; z-index:99; display:none; padding:10px 30px;
+    background:linear-gradient(90deg,rgba(120,20,12,.95),rgba(180,40,25,.95),rgba(120,20,12,.95));
+    color:#ffe9d6; font-size:16px; letter-spacing:2px; text-align:center;
+    border-bottom:1px solid var(--vermilion); animation:blink 1s infinite alternate;
+  }
+  @keyframes blink { from {opacity:1;} to {opacity:.78;} }
+
+  /* ===================== 压力条 ===================== */
+  .pressure-item { margin:10px 6px; font-size:14px; }
+  .pressure-name { display:flex; justify-content:space-between; color:var(--text); }
+  .pressure-name span:last-child { font-family:"Times New Roman",serif; color:var(--text-dim); }
+  .pressure-bar { background:rgba(216,185,128,.12); height:10px; margin-top:5px; overflow:hidden; border-radius:1px; }
+  .pressure-fill { height:100%; transition:width .8s; }
+
+  /* ===================== 风控等级卡 ===================== */
+  .lv-cards { display:flex; gap:14px; padding:10px 30px 2px; }
+  .lv-card {
+    flex:1; position:relative; text-align:center; padding:14px 0 12px;
+    background:var(--ink); border:1px solid var(--gold-dim); border-radius:2px;
+  }
+  .lv-card .n { font-size:34px; font-family:"Times New Roman",serif; }
+  .lv-card .t { font-size:14px; letter-spacing:3px; margin-top:4px; }
+  .lv-严重-bg .n { color:#ff5a4d; text-shadow:0 0 16px rgba(255,90,77,.5); }
+  .lv-高-bg .n { color:#ff9a3d; text-shadow:0 0 16px rgba(255,154,61,.4); }
+  .lv-中-bg .n { color:#ffd54f; }
+  .lv-低-bg .n { color:var(--text-dim); }
+
+  .stat-line { display:flex; justify-content:space-between; padding:9px 14px;
+    border-bottom:1px solid rgba(216,185,128,.12); font-size:15px; }
+  .stat-line b { font-family:"Times New Roman",serif; color:var(--gold-bright); font-weight:normal; }
+
+  ::-webkit-scrollbar { width:6px; }
+  ::-webkit-scrollbar-thumb { background:var(--gold-dim); border-radius:3px; }
+</style>
+</head>
+<body>
+<div id="alert-banner"></div>
+
+<header>
+  <button class="fullscreen-btn" onclick="toggleFullscreen()">⛶ 全屏</button>
+  <div class="time">
+    数据更新 <span id="update-time">--</span><br>
+    每 3 秒自动刷新
+  </div>
+  <h1><span class="seal">实时</span>博物馆票务预约实时监控平台</h1>
+  <div class="sub">MUSEUM REAL-TIME BOOKING DATA PLATFORM</div>
+  <div class="rule"></div>
+</header>
+
+<nav>
+  <div class="tab active" data-page="overview" onclick="switchPage('overview')">态势总览</div>
+  <div class="tab" data-page="risk" onclick="switchPage('risk')">风控中心</div>
+  <div class="tab" data-page="system" onclick="switchPage('system')">系统管理</div>
+</nav>
+
+<!-- ==================== 页签 1:态势总览 ==================== -->
+<div class="page active" id="page-overview">
+  <div class="cards">
+    <div class="card"><div class="label">实时 QPS(分钟窗)</div><div class="value" id="c-qps">--</div></div>
+    <div class="card"><div class="label">分钟预约总量</div><div class="value" id="c-total">--</div></div>
+    <div class="card"><div class="label">累计处理请求</div><div class="value" id="c-processed">--</div></div>
+    <div class="card"><div class="label">预约成功率</div><div class="value" id="c-succ">--</div></div>
+    <div class="card warn"><div class="label">累计告警</div><div class="value" id="c-alerts">0</div></div>
+  </div>
+
+  <div class="grid">
+    <!-- 左栏 -->
+    <div class="panel span3"><h3>馆区预约占比 · 5分钟窗</h3><div id="ch-venue" class="chart"></div></div>
+    <div class="panel span3" style="grid-row:span 2"><h3>客户端类型分布</h3><div id="ch-client" style="height:534px"></div></div>
+
+    <!-- 中栏:主视觉 -->
+    <div class="panel span6"><h3>实时流量趋势(10秒级 × 分钟级)</h3><div id="ch-trend" class="chart-xl"></div></div>
+    <div class="panel span3"><h3>参观时段分布</h3><div id="ch-slot" class="chart"></div></div>
+    <div class="panel span3"><h3>预约结果分布</h3><div id="ch-result" class="chart"></div></div>
+    <div class="panel span3"><h3>单次预约票数分布</h3><div id="ch-ticket" class="chart"></div></div>
+
+    <!-- 底部 -->
+    <div class="panel span6"><h3>热门时段 TOP 排行</h3><div id="ch-top" class="chart"></div></div>
+    <div class="panel span3"><h3>各馆区 × 时段余票压力</h3><div id="pressure-box" style="min-height:238px"></div></div>
+  </div>
+</div>
+
+<!-- ==================== 页签 2:风控中心 ==================== -->
+<div class="page" id="page-risk">
+  <div class="lv-cards">
+    <div class="lv-card lv-严重-bg"><div class="n" id="lv-严重">0</div><div class="t lv-严重">严重</div></div>
+    <div class="lv-card lv-高-bg"><div class="n" id="lv-高">0</div><div class="t lv-高">高</div></div>
+    <div class="lv-card lv-中-bg"><div class="n" id="lv-中">0</div><div class="t lv-中">中</div></div>
+    <div class="lv-card lv-低-bg"><div class="n" id="lv-低">0</div><div class="t lv-低">低</div></div>
+    <div class="lv-card"><div class="n" style="color:var(--gold-bright)" id="lv-total">0</div><div class="t" style="color:var(--text-dim)">累计告警</div></div>
+  </div>
+
+  <div class="grid">
+    <div class="panel span7">
+      <h3>实时告警列表</h3>
+      <div style="max-height:560px;overflow-y:auto">
+        <table><thead><tr><th>时间</th><th>等级</th><th>规则</th><th>主体</th><th>实测/阈值</th><th>处置</th></tr></thead>
+        <tbody id="alert-tbody"></tbody></table>
+      </div>
+    </div>
+    <div class="panel span5"><h3>检测规则命中分布</h3><div id="ch-rules" class="chart"></div></div>
+    <div class="panel span5">
+      <h3>风险主体榜 TOP10</h3>
+      <div style="max-height:280px;overflow-y:auto">
+        <table><thead><tr><th>主体</th><th>类型</th><th>风险分</th></tr></thead>
+        <tbody id="risk-tbody"></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 页签 3:系统管理 ==================== -->
+<div class="page" id="page-system">
+  <div class="cards">
+    <div class="card warn"><div class="label">非法数据拦截</div><div class="value" id="s-invalid">0</div></div>
+    <div class="card warn"><div class="label">黑名单拦截请求</div><div class="value" id="s-hits">0</div></div>
+    <div class="card"><div class="label">黑名单 IP 数</div><div class="value" id="s-black">0</div></div>
+    <div class="card"><div class="label">累计处理请求</div><div class="value" id="s-processed">0</div></div>
+  </div>
+
+  <div class="grid">
+    <div class="panel span6">
+      <h3>黑名单管理</h3>
+      <div style="display:flex;gap:8px;padding:8px 4px">
+        <input id="black-input" placeholder="输入 IP,如 10.66.1.1" style="flex:1;background:rgba(216,185,128,.08);border:1px solid var(--gold-dim);color:var(--text);padding:6px 10px;font-family:inherit;font-size:14px;border-radius:2px">
+        <button class="btn" onclick="addBlackManual()">加入黑名单</button>
+      </div>
+      <div style="max-height:420px;overflow-y:auto">
+        <table><thead><tr><th>IP 地址</th><th>操作</th></tr></thead>
+        <tbody id="blacklist-tbody"></tbody></table>
+      </div>
+    </div>
+    <div class="panel span6">
+      <h3>平台链路状态</h3>
+      <div id="chain-box" style="padding:6px 2px"></div>
+      <h3 style="margin-top:10px">说明</h3>
+      <div style="padding:8px 4px;font-size:14px;line-height:1.9;color:var(--text-dim)">
+        黑名单由 Flink 作业每 5 秒从 Redis 热加载,命中 IP 的请求实时拦截并计数,
+        不再进入统计与检测链路;解除后自动恢复。<br>
+        非法数据(字段缺失 / 类型非法 / 取值越界)写入错误 topic
+        <span style="color:var(--gold)">museum_booking_error</span> 并计数。<br>
+        集群:ZooKeeper × 3 · Kafka × 3 · Flink 1 JM + 2 TM · Redis · MySQL。
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const GOLD = '#d8b980', GOLD_B = '#efdcae', JADE = '#63c8be', VERM = '#e0644a',
+      AXIS = '#8a97b8', SPLIT = 'rgba(216,185,128,.12)';
+const axisX = { axisLabel:{color:AXIS,fontFamily:'SimSun'}, axisLine:{lineStyle:{color:'rgba(216,185,128,.3)'}},
+                splitLine:{lineStyle:{color:SPLIT}} };
+const pieLabel = { color:'#e9e2cf', fontFamily:'SimSun' };
+const tip = { backgroundColor:'rgba(10,16,32,.92)', borderColor:'rgba(216,185,128,.4)',
+              textStyle:{color:'#e9e2cf'} };
+
+const charts = {};
+function mk(id){ if(charts[id]) return charts[id]; const c = echarts.init(document.getElementById(id)); charts[id]=c; return c; }
+function fmtTime(ms){ return new Date(ms).toTimeString().slice(0,8); }
+let lastAlertKey = null;
+
+/* ---------- 页签切换 ---------- */
+function switchPage(name){
+  document.querySelectorAll('nav .tab').forEach(t=>t.classList.toggle('active', t.dataset.page===name));
+  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active', p.id==='page-'+name));
+  setTimeout(()=>Object.values(charts).forEach(c=>c.resize()), 60);
+}
+function toggleFullscreen(){
+  if(!document.fullscreenElement) document.documentElement.requestFullscreen();
+  else document.exitFullscreen();
+}
+
+/* ---------- 数字滚动动画 ---------- */
+function countUp(el, target, suffix){
+  suffix = suffix || '';
+  const from = parseFloat(el.dataset.v || '0') || 0;
+  el.dataset.v = target;
+  if(from === target){ el.textContent = fmt(target) + suffix; return; }
+  const t0 = performance.now(), dur = 600;
+  function fmt(v){ return typeof target === 'number' && target >= 1000 ? Math.round(v).toLocaleString() : (Math.round(v*10)/10); }
+  function step(t){
+    const p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+    el.textContent = fmt(from + (target - from) * e) + suffix;
+    if(p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+function setNum(id, v, suffix){
+  const el = document.getElementById(id);
+  if(el) countUp(el, v, suffix);
+}
+
+/* ---------- 数据刷新(页面隐藏时自动暂停) ---------- */
+let refreshTimer = null;
+function startLoop(){
+  if(refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = setInterval(()=>{ if(!document.hidden) refresh(); }, 3000);
+}
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) refresh(); });
+
+let apiFailCount = 0;
+async function refresh(){
+  try {
+    const [m, a, bl] = await Promise.all([
+      fetch('/api/metrics').then(r=>r.json()),
+      fetch('/api/alerts').then(r=>r.json()),
+      fetch('/api/blacklist').then(r=>r.json())
+    ]);
+    apiFailCount = 0;
+    document.getElementById('update-time').textContent = new Date().toLocaleString('zh-CN');
+    renderOverview(m, a);
+    renderRisk(m, a);
+    renderSystem(m, bl);
+  } catch(e) {
+    console.error(e);
+    if(++apiFailCount >= 3){
+      const banner = document.getElementById('alert-banner');
+      banner.style.display = 'block';
+      banner.textContent = '⚠ 数据接口异常,正在重试 ……';
+    }
+  }
+}
+
+function renderOverview(m, a){
+  setNum('c-qps', m.qps.qps);
+  setNum('c-total', m.qps.count);
+  setNum('c-processed', m.total_processed||0);
+  document.getElementById('c-succ').textContent = (m.qps.successRate*100).toFixed(1)+'%';
+  setNum('c-alerts', m.total_alerts||0);
+
+  // 双曲线:10秒级(青玉) + 分钟级(鎏金)
+  mk('ch-trend').setOption({
+    grid:{left:56,right:26,top:38,bottom:30},
+    tooltip:{trigger:'axis', ...tip},
+    legend:{top:0, textStyle:{color:AXIS}, data:['秒级流量(10s窗)','分钟总量(1m窗)']},
+    xAxis:[
+      {type:'category', data:m.trend10s.map(p=>fmtTime(p.ts)), ...axisX, splitLine:{show:false}},
+      {type:'category', data:m.trend.map(p=>fmtTime(p.ts)), show:false}
+    ],
+    yAxis:{type:'value', ...axisX},
+    series:[
+      {name:'秒级流量(10s窗)', type:'line', data:m.trend10s.map(p=>p.count), smooth:true,
+       symbol:'none', lineStyle:{color:JADE,width:2},
+       areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,
+         colorStops:[{offset:0,color:'rgba(99,200,190,.3)'},{offset:1,color:'rgba(99,200,190,0)'}]}}},
+      {name:'分钟总量(1m窗)', type:'line', xAxisIndex:1, data:m.trend.map(p=>p.count), smooth:true,
+       symbol:'circle', symbolSize:5, lineStyle:{color:GOLD,width:2}, itemStyle:{color:GOLD_B}}
+    ]
+  });
+
+  mk('ch-venue').setOption({ color:[GOLD,'#8a9fd4'], tooltip:{...tip},
+    legend:{bottom:0,textStyle:{color:AXIS}},
+    series:[{type:'pie', radius:['46%','68%'], center:['50%','44%'],
+             label:{...pieLabel, formatter:'{b}\n{d}%'}, itemStyle:{borderColor:'#0a101f',borderWidth:2},
+             data:Object.entries(m.venue).map(([k,v])=>({name:k, value:v.count}))}] });
+
+  mk('ch-slot').setOption({ color:['#e6a23c',JADE], tooltip:{...tip},
+    legend:{bottom:0,textStyle:{color:AXIS}},
+    series:[{type:'pie', radius:['44%','66%'], center:['50%','44%'],
+             label:{...pieLabel, formatter:'{b} {d}%'}, itemStyle:{borderColor:'#0a101f',borderWidth:2},
+             data:Object.entries(m.slot).map(([k,v])=>({name:k, value:v.count}))}] });
+
+  const resMap = {SUCCESS:'成功', SOLD_OUT:'售罄', QUEUED:'排队'};
+  mk('ch-result').setOption({ color:['#7fb069',VERM,'#e6a23c'], tooltip:{...tip},
+    legend:{bottom:0,textStyle:{color:AXIS}},
+    series:[{type:'pie', radius:['44%','66%'], center:['50%','44%'],
+             label:{...pieLabel, formatter:'{b} {d}%'}, itemStyle:{borderColor:'#0a101f',borderWidth:2},
+             data:Object.entries(m.result).map(([k,v])=>({name:resMap[k]||k, value:v.count}))}] });
+
+  const clients = Object.entries(m.client).sort((a,b)=>b[1].count-a[1].count);
+  mk('ch-client').setOption({ grid:{left:140,right:24,top:10,bottom:24},
+    tooltip:{...tip},
+    xAxis:{type:'value', ...axisX},
+    yAxis:{type:'category', data:clients.map(c=>c[0]).reverse(), ...axisX, splitLine:{show:false}},
+    series:[{type:'bar', barWidth:16, data:clients.map(c=>c[1].count).reverse(),
+             itemStyle:{color:{type:'linear',x:0,y:0,x2:1,y2:0,
+               colorStops:[{offset:0,color:'rgba(99,200,190,.35)'},{offset:1,color:JADE}]}}}] });
+
+  const tickets = Object.entries(m.ticket_dist).sort((a,b)=>parseInt(a[0])-parseInt(b[0]));
+  mk('ch-ticket').setOption({ grid:{left:44,right:20,top:20,bottom:28},
+    tooltip:{...tip},
+    xAxis:{type:'category', data:tickets.map(t=>t[0]+' 张'), ...axisX, splitLine:{show:false}},
+    yAxis:{type:'value', ...axisX},
+    series:[{type:'bar', barWidth:18, data:tickets.map(t=>t[1].count),
+             itemStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,
+               colorStops:[{offset:0,color:GOLD_B},{offset:1,color:'rgba(216,185,128,.35)'}]}}}] });
+
+  const tops = m.top.slice(0,8);
+  mk('ch-top').setOption({ grid:{left:110,right:34,top:8,bottom:24},
+    tooltip:{...tip},
+    xAxis:{type:'value', ...axisX},
+    yAxis:{type:'category', data:tops.map(t=>t.name).reverse(), ...axisX, splitLine:{show:false}},
+    series:[{type:'bar', barWidth:14, data:tops.map(t=>t.count).reverse(),
+             label:{show:true, position:'right', color:AXIS, fontFamily:'SimSun'},
+             itemStyle:{color:{type:'linear',x:0,y:0,x2:1,y2:0,
+               colorStops:[{offset:0,color:'rgba(138,159,212,.5)'},{offset:1,color:GOLD}]}}}] });
+
+  document.getElementById('pressure-box').innerHTML =
+    Object.values(m.pressure).sort((a,b)=>b.ratio-a.ratio).map(p=>{
+      const pct = (p.ratio*100).toFixed(1);
+      const color = p.ratio>0.8 ? VERM : p.ratio>0.5 ? '#e6a23c' : JADE;
+      return `<div class="pressure-item"><div class="pressure-name">
+        <span>${p.display}</span><span>${p.booked} / ${p.capacity} · ${pct}%</span></div>
+        <div class="pressure-bar"><div class="pressure-fill" style="width:${Math.min(pct,100)}%;background:${color};box-shadow:0 0 8px ${color}"></div></div></div>`;
+    }).join('') || '<div style="color:var(--text-dim);padding:24px">暂无数据</div>';
+}
+
+function renderRisk(m, a){
+  const lv = a.levelStats||{};
+  ['严重','高','中','低'].forEach(l=>document.getElementById('lv-'+l).textContent = lv[l]||0);
+  document.getElementById('lv-total').textContent = m.total_alerts||0;
+
+  document.getElementById('alert-tbody').innerHTML = a.latest.map(al=>`<tr>
+    <td>${(al.alertTime||'').slice(5,19)}</td>
+    <td class="lv-${al.riskLevel}">${al.riskLevel} · ${al.riskScore}</td>
+    <td>${al.ruleCode} ${al.ruleName}</td>
+    <td>${al.subject}</td>
+    <td>${al.metricValue} / ${al.threshold}</td>
+    <td>${al.subjectType==='ip'?`<button class="btn" onclick="addBlack('${al.subject}')">加入黑名单</button>`:''}</td>
+  </tr>`).join('');
+
+  // 告警横幅
+  if(a.latest.length){
+    const newest = a.latest[0];
+    const key = newest.alertTime + newest.subject;
+    if(lastAlertKey && key !== lastAlertKey){
+      const banner = document.getElementById('alert-banner');
+      banner.style.display='block';
+      banner.textContent = `⚠ ${newest.alertTime} 【${newest.riskLevel}】${newest.ruleName} —— 主体 ${newest.subject} 风险分 ${newest.riskScore}`;
+      setTimeout(()=>banner.style.display='none', 6000);
+    }
+    lastAlertKey = key;
+  }
+
+  // 规则命中分布
+  const ruleNameMap = {R1:'单IP高频',R2:'单IP高票数',R3:'成功率异常',R4:'会话高频',R5:'网段突增'};
+  const rules = (a.ruleStats||[]).map(r=>({name:`${r.rule} ${ruleNameMap[r.rule]||r.name}`, value:r.count}));
+  mk('ch-rules').setOption({ color:[GOLD,JADE,VERM,'#8a9fd4','#e6a23c'], tooltip:{...tip},
+    legend:{bottom:0,textStyle:{color:AXIS}},
+    series:[{type:'pie', radius:['42%','66%'], center:['50%','44%'], roseType:'radius',
+             label:{...pieLabel, formatter:'{b}\n{c} 次'}, itemStyle:{borderColor:'#0a101f',borderWidth:2},
+             data:rules}] });
+
+  document.getElementById('risk-tbody').innerHTML = m.risk.map(rk=>
+    `<tr><td>${rk.subject}</td><td>${rk.type}</td><td style="color:${GOLD_B}">${rk.score}</td></tr>`).join('');
+}
+
+function renderSystem(m, bl){
+  setNum('s-invalid', m.invalid_count);
+  setNum('s-hits', m.blacklist_hits);
+  setNum('s-black', bl.ips.length);
+  setNum('s-processed', m.total_processed||0);
+
+  document.getElementById('blacklist-tbody').innerHTML = bl.ips.map(ip=>
+    `<tr><td>${ip}</td><td><button class="btn" onclick="delBlack('${ip}')">解除</button></td></tr>`).join('')
+    || '<tr><td colspan="2" style="color:var(--text-dim)">名单为空</td></tr>';
+
+  const chain = [
+    ['数据生成器 → Kafka(museum_booking_raw)', m.qps.count>0],
+    ['Kafka → Flink 清洗校验', true],
+    ['Flink 窗口指标 → Redis', m.qps.windowEnd>0],
+    ['Flink 异常检测 → MySQL 告警', (m.total_alerts||0)>0],
+    ['Flask 看板 ← Redis / MySQL', true]
+  ];
+  document.getElementById('chain-box').innerHTML = chain.map(([name, ok])=>
+    `<div class="stat-line"><span>${name}</span><b style="color:${ok?'#7fb069':'#ff5a4d'}">${ok?'● 正常':'● 无数据'}</b></div>`).join('');
+}
+
+async function addBlack(ip){ await fetch('/api/blacklist',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ip})}); refresh(); }
+async function addBlackManual(){
+  const ip = document.getElementById('black-input').value.trim();
+  if(ip){ await addBlack(ip); document.getElementById('black-input').value=''; }
+}
+async function delBlack(ip){ await fetch('/api/blacklist/'+ip,{method:'DELETE'}); refresh(); }
+
+refresh();
+startLoop();
+window.addEventListener('resize', ()=>Object.values(charts).forEach(c=>c.resize()));
+</script>
+</body>
+</html>

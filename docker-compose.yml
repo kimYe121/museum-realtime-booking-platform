@@ -1,0 +1,237 @@
+﻿# ============================================================
+# 博物馆票务预约实时数据处理平台
+# ZooKeeper x3 + Kafka x3(ZK 模式) + Flink(1 JM + 2 TM)
+# + Redis + MySQL + Kafdrop + Dashboard
+# 所有容器均设置资源限制,适配单机演示
+# ============================================================
+
+x-kafka-base: &kafka-base
+  image: apache/kafka:3.8.0
+  restart: unless-stopped
+  networks: [rtnet]
+  depends_on: [zk1, zk2, zk3]
+  # apache/kafka 官方镜像的 launch 脚本仅支持 KRaft 格式化,
+  # ZK 模式下改为由环境变量直接生成 server.properties 启动
+  entrypoint: ["/bin/bash", "/opt/kafka/zk-start.sh"]
+  environment:
+    KAFKA_ZOOKEEPER_CONNECT: zk1:2181,zk2:2181,zk3:2181
+    KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "2"
+    KAFKA_DEFAULT_REPLICATION_FACTOR: "2"
+    KAFKA_MIN_INSYNC_REPLICAS: "1"
+    KAFKA_HEAP_OPTS: -Xms512m -Xmx512m
+  volumes:
+    - ./conf/zk-start.sh:/opt/kafka/zk-start.sh:ro
+  mem_limit: 1g
+  cpus: 1.5
+
+networks:
+  rtnet:
+    driver: bridge
+
+volumes:
+  mysql-data:
+  flink-checkpoints:
+
+services:
+  # ---------------- ZooKeeper 集群 ----------------
+  zk1:
+    image: zookeeper:3.7
+    container_name: zk1
+    restart: unless-stopped
+    networks: [rtnet]
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_SERVERS: server.1=zk1:2888:3888;2181 server.2=zk2:2888:3888;2181 server.3=zk3:2888:3888;2181
+      ZOO_4LW_COMMANDS_WHITELIST: ruok,stat,mntr
+    mem_limit: 256m
+    cpus: 0.5
+
+  zk2:
+    image: zookeeper:3.7
+    container_name: zk2
+    restart: unless-stopped
+    networks: [rtnet]
+    environment:
+      ZOO_MY_ID: 2
+      ZOO_SERVERS: server.1=zk1:2888:3888;2181 server.2=zk2:2888:3888;2181 server.3=zk3:2888:3888;2181
+      ZOO_4LW_COMMANDS_WHITELIST: ruok,stat,mntr
+    mem_limit: 256m
+    cpus: 0.5
+
+  zk3:
+    image: zookeeper:3.7
+    container_name: zk3
+    restart: unless-stopped
+    networks: [rtnet]
+    environment:
+      ZOO_MY_ID: 3
+      ZOO_SERVERS: server.1=zk1:2888:3888;2181 server.2=zk2:2888:3888;2181 server.3=zk3:2888:3888;2181
+      ZOO_4LW_COMMANDS_WHITELIST: ruok,stat,mntr
+    mem_limit: 256m
+    cpus: 0.5
+
+  # ---------------- Kafka 集群(ZooKeeper 模式) ----------------
+  kafka1:
+    <<: *kafka-base
+    container_name: kafka1
+    ports:
+      - "29092:29092"   # 宿主机(Windows)访问入口
+    environment:
+      KAFKA_BROKER_ID: "1"
+      KAFKA_HOST_PORT: "29092"
+      KAFKA_ZOOKEEPER_CONNECT: zk1:2181,zk2:2181,zk3:2181
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "2"
+      KAFKA_DEFAULT_REPLICATION_FACTOR: "2"
+      KAFKA_MIN_INSYNC_REPLICAS: "1"
+      KAFKA_HEAP_OPTS: -Xms512m -Xmx512m
+
+  kafka2:
+    <<: *kafka-base
+    container_name: kafka2
+    ports:
+      - "29093:29093"
+    environment:
+      KAFKA_BROKER_ID: "2"
+      KAFKA_HOST_PORT: "29093"
+      KAFKA_ZOOKEEPER_CONNECT: zk1:2181,zk2:2181,zk3:2181
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "2"
+      KAFKA_DEFAULT_REPLICATION_FACTOR: "2"
+      KAFKA_MIN_INSYNC_REPLICAS: "1"
+      KAFKA_HEAP_OPTS: -Xms512m -Xmx512m
+
+  kafka3:
+    <<: *kafka-base
+    container_name: kafka3
+    ports:
+      - "29094:29094"
+    environment:
+      KAFKA_BROKER_ID: "3"
+      KAFKA_HOST_PORT: "29094"
+      KAFKA_ZOOKEEPER_CONNECT: zk1:2181,zk2:2181,zk3:2181
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "2"
+      KAFKA_DEFAULT_REPLICATION_FACTOR: "2"
+      KAFKA_MIN_INSYNC_REPLICAS: "1"
+      KAFKA_HEAP_OPTS: -Xms512m -Xmx512m
+
+  # ---------------- Flink 集群(1 JobManager + 2 TaskManager) ----------------
+  flink-jobmanager:
+    image: flink:1.18-scala_2.12-java11
+    container_name: flink-jobmanager
+    restart: unless-stopped
+    networks: [rtnet]
+    command: jobmanager
+    ports:
+      - "8081:8081"
+    environment:
+      JOB_MANAGER_RPC_ADDRESS: flink-jobmanager
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        rest.bind-address: 0.0.0.0
+        parallelism.default: 4
+        execution.checkpointing.interval: 30s
+        state.backend.type: hashmap
+    volumes:
+      - flink-checkpoints:/opt/flink/checkpoints
+      - ./flink-job/target:/opt/jobs
+    mem_limit: 1g
+    cpus: 1.0
+
+  flink-taskmanager1:
+    image: flink:1.18-scala_2.12-java11
+    container_name: flink-taskmanager1
+    restart: unless-stopped
+    networks: [rtnet]
+    command: taskmanager
+    depends_on: [flink-jobmanager]
+    environment:
+      JOB_MANAGER_RPC_ADDRESS: flink-jobmanager
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 2
+        taskmanager.memory.process.size: 1600m
+    volumes:
+      - flink-checkpoints:/opt/flink/checkpoints
+    mem_limit: 1900m
+    cpus: 2.0
+
+  flink-taskmanager2:
+    image: flink:1.18-scala_2.12-java11
+    container_name: flink-taskmanager2
+    restart: unless-stopped
+    networks: [rtnet]
+    command: taskmanager
+    depends_on: [flink-jobmanager]
+    environment:
+      JOB_MANAGER_RPC_ADDRESS: flink-jobmanager
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 2
+        taskmanager.memory.process.size: 1600m
+    volumes:
+      - flink-checkpoints:/opt/flink/checkpoints
+    mem_limit: 1900m
+    cpus: 2.0
+
+  # ---------------- 存储层 ----------------
+  redis:
+    image: redis:7.2-alpine
+    container_name: redis
+    restart: unless-stopped
+    networks: [rtnet]
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    mem_limit: 320m
+    cpus: 0.5
+
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    restart: unless-stopped
+    networks: [rtnet]
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: museum
+      TZ: Asia/Shanghai
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    mem_limit: 512m
+    cpus: 1.0
+
+  # ---------------- Kafka Web UI ----------------
+  kafdrop:
+    image: obsidiandynamics/kafdrop:4.1.0
+    container_name: kafdrop
+    restart: unless-stopped
+    networks: [rtnet]
+    depends_on: [kafka1, kafka2, kafka3]
+    ports:
+      - "9000:9000"
+    environment:
+      KAFKA_BROKERCONNECT: kafka1:9092,kafka2:9092,kafka3:9092
+      JVM_OPTS: -Xms128m -Xmx256m
+    mem_limit: 384m
+    cpus: 0.5
+
+  # ---------------- 数据看板 ----------------
+  dashboard:
+    build: ./dashboard
+    container_name: dashboard
+    restart: unless-stopped
+    networks: [rtnet]
+    depends_on: [redis, mysql]
+    ports:
+      - "5000:5000"
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root123
+      MYSQL_DB: museum
+    mem_limit: 256m
+    cpus: 0.5

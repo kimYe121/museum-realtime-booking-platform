@@ -1,0 +1,160 @@
+# ============================================================
+# 博物馆票务预约数据生成器 —— 配置文件
+# 修改本文件即可调整数据分布、异常行为、输出方式等
+# 输出格式：CSV（UTF-8）
+# ============================================================
+
+# ---------- 运行时参数（可通过命令行覆盖） ----------
+runtime:
+  # 默认速率档位：low=50 / medium=500 / high=5000 / xhigh=50000
+  # 也可直接写数字，例如 2000
+  rate: medium
+
+  # 输出方式：stdout / file / kafka
+  sink: stdout
+
+  # 运行时长（秒），0 表示一直运行到 Ctrl-C
+  duration: 0
+
+  # 事件时间加速倍率：1=真实时间；600=每 1 秒真实时间推进 10 分钟事件时间
+  time_scale: 1.0
+
+  file:
+    output: ./data/museum_booking.csv
+
+  kafka:
+    brokers: localhost:9092
+    topic: museum_booking
+    compression: lz4
+
+# ---------- 调度 ----------
+scheduler:
+  tick: 0.1     # 每 100ms 生成一批
+
+# ---------- 速率档位 ----------
+rate_presets:
+  low: 50
+  medium: 500
+  high: 5000
+  xhigh: 50000
+
+# ---------- 馆区 ----------
+venues:
+  - code: east
+    name: 东馆
+    weight: 0.55
+  - code: main
+    name: 本馆
+    weight: 0.45
+
+# ---------- 参观时段 ----------
+slots:
+  - code: morning
+    name: 上午
+    weight: 0.46
+  - code: afternoon
+    name: 下午
+    weight: 0.54
+
+# ---------- 客户端类型 ----------
+clients:
+  - code: APP-Android
+    weight: 0.29
+  - code: APP-iOS
+    weight: 0.25
+  - code: WeChat-MiniProgram
+    weight: 0.24
+  - code: Alipay-MiniProgram
+    weight: 0.09
+  - code: H5-Mobile
+    weight: 0.06
+  - code: Web-PC
+    weight: 0.05
+  - code: SelfService-Kiosk
+    weight: 0.02
+
+# ---------- 预约结果 ----------
+results:
+  - code: SUCCESS
+    weight: 0.86
+  - code: SOLD_OUT
+    weight: 0.09
+  - code: QUEUED
+    weight: 0.05
+
+# ---------- 单次预约票数 ----------
+ticket_counts:
+  - value: 1
+    weight: 35
+  - value: 2
+    weight: 30
+  - value: 3
+    weight: 15
+  - value: 4
+    weight: 10
+  - value: 5
+    weight: 6
+  - value: 6
+    weight: 4
+
+# ---------- 模拟公网 IP 的 /16 前缀 ----------
+ip_prefixes:
+  - "117.136"
+  - "223.104"
+  - "183.232"
+  - "120.229"
+  - "101.226"
+  - "36.152"
+  - "112.17"
+  - "58.246"
+  - "221.192"
+  - "110.245"
+  - "106.121"
+  - "123.125"
+  - "27.128"
+  - "1.202"
+  - "175.24"
+
+# ---------- 异常请求配置 ----------
+# 用于模拟机器人抢票、黄牛多账号、突发探测等异常流量
+# traffic_type 字段标注每条请求的类型（normal/bot/scalper/burst）
+# is_abnormal 为 ground truth 标签，便于验证 Flink 异常检测效果
+abnormal:
+  enabled: true
+
+  # 异常请求占全部请求的比例（0.05 = 5%）
+  ratio: 0.05
+
+  # 机器人 IP 池大小（池中 IP 会被反复复用，形成高频特征）
+  bot_ip_pool_size: 30
+
+  # 机器人“粘性”：同一 IP 被连续复用的概率，越高越像单 IP 高频攻击
+  bot_ip_sticky_ratio: 0.85
+
+  # 黄牛使用的“小号”网段（形如 10.66.x.x）
+  scalper_subnets:
+    - "10.66"
+    - "10.67"
+
+  # 各异常类型的权重与特征
+  types:
+    # 机器人抢票：固定客户端、高票数、几乎都成功、同一 IP 高频
+    bot:
+      weight: 0.60
+      client_types: ["APP-Android", "H5-Mobile"]
+      ticket_count_range: [4, 6]
+      success_weight: 0.95
+
+    # 黄牛多账号：来自固定网段、高票数、成功率较高
+    scalper:
+      weight: 0.30
+      client_types: ["APP-Android", "WeChat-MiniProgram"]
+      ticket_count_range: [5, 6]
+      success_weight: 0.85
+
+    # 突发探测：低票数、成功率低，可能是恶意探测
+    burst:
+      weight: 0.10
+      client_types: ["H5-Mobile", "Web-PC"]
+      ticket_count_range: [1, 2]
+      success_weight: 0.70
