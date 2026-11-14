@@ -8,7 +8,7 @@ USE museum;
 CREATE TABLE IF NOT EXISTS alert_record (
     id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
     alert_time    DATETIME(3)     NOT NULL COMMENT '告警触发时间',
-    rule_code     VARCHAR(32)     NOT NULL COMMENT '触发规则编码 R1~R5',
+    rule_code     VARCHAR(32)     NOT NULL COMMENT '触发规则编码 R1~R6',
     rule_name     VARCHAR(64)     NOT NULL COMMENT '触发规则名称',
     subject_type  VARCHAR(16)     NOT NULL COMMENT '异常主体类型 ip/session/subnet',
     subject       VARCHAR(64)     NOT NULL COMMENT '异常主体(IP/会话/网段)',

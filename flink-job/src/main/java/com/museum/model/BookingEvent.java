@@ -33,6 +33,23 @@ public class BookingEvent {
         return i > 0 ? ip.substring(0, i) : ip;
     }
 
+    /** 所属 /16 网段 */
+    public String subnet16() {
+        if (ip == null) return "unknown";
+        int i = ip.indexOf('.', ip.indexOf('.') + 1);
+        return i > 0 ? ip.substring(0, i) : ip;
+    }
+
+    /** 是否非公网地址段(私网/机房段,正常预约不应出现) */
+    public boolean isPrivateNet() {
+        if (ip == null) return false;
+        return ip.startsWith("10.") || ip.startsWith("192.168.")
+                || ip.startsWith("169.254.") || ip.startsWith("172.16.")
+                || ip.startsWith("172.17.") || ip.startsWith("172.18.")
+                || ip.startsWith("172.19.") || ip.startsWith("172.2")
+                || ip.startsWith("172.30.") || ip.startsWith("172.31.");
+    }
+
     /** 馆区x时段组合键 */
     public String venueSlot() {
         return venue + "|" + timeSlot;

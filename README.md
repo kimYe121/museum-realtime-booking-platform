@@ -5,22 +5,7 @@
 
 ## 1. 系统架构
 
-```
-                    ┌──────────────────────────────────────────────────────┐
-                    │                   Docker 网络 rtnet                   │
-                    │                                                      │
- museum_booking_gen │  ┌─────────┐   ┌──────────────────┐   ┌───────────┐ │
- (数据生成器,宿主机)─→ │ Kafka ×3│ → │ Flink 1JM + 2TM  │ → │  Redis    │ │→ 实时指标/风险榜/告警列表
-     500~5000 条/秒  │  (ZK模式) │   │ 清洗·窗口·检测·评分│   ├───────────┤ │
-                    │  ├─────────┤   └──────┬───────────┘   │  MySQL    │ │→ 告警明细/窗口快照
-                    │  │ ZK ×3   │          │               └─────┬─────┘ │
-                    │  └─────────┘          │(非法数据)           │       │
-                    │  ┌─────────┐          ↓               ┌─────▼─────┐ │
-                    │  │ Kafdrop │   museum_booking_error   │ Dashboard │ │
-                    │  └─────────┘                          │Flask+图表 │ │
-                    │                                       └───────────┘ │
-                    └──────────────────────────────────────────────────────┘
-```
+![系统架构图](docs/images/architecture.png)
 
 | 组件 | 版本 | 角色 | 数量 |
 |------|------|------|------|
@@ -72,16 +57,33 @@ python scripts/traffic_director.py --gen generator/museum_booking_gen.py --broke
 | Flink Dashboard | http://localhost:8081 | 作业状态、反压、Checkpoint |
 | Kafdrop | http://localhost:9000 | Topic/分区/消费组积压 |
 
-## 4. 功能与课程要求对照
+### 运行截图
 
-| 要求 | 实现 |
-|------|------|
-| 数据接入与清洗 | JSON 解析 + 字段合法性校验;非法数据 → `museum_booking_error` topic + Redis 计数 |
-| 实时指标 | QPS/总量(1min)、馆区/时段/客户端/结果/票数分布(5min)、余票压力(keyed state 累计)、热门时段 TOP、分钟趋势曲线 |
-| 异常检测(5 条规则) | R1 单IP高频(10s≥15)、R2 单IP高票数(60s≥40)、R3 成功率异常(≥10 且 ≥95%)、R4 会话高频(10s≥10)、R5 网段突增(10s≥30),阈值均可经环境变量调整 |
-| 风险评分与告警 | 规则分合成(30/25/25/20/20),分级 中40/高60/严重80;同主体 60s(事件时间)冷却去重;告警写 MySQL + Redis,大屏横幅弹窗 |
-| 黑名单处置 | 看板一键拉黑/解除;Flink 每 5s 热加载黑名单,命中请求实时拦截计数 |
-| 效果验证 | `scripts/evaluate.py` 对比检测结果与 `is_abnormal` 真值,输出精确率/召回率/误报率;窗口统计与离线核对误差 |
+**态势总览**:实时 QPS、预约成功率、分钟趋势与预测、馆区/时段/客户端分布、余票压力
+
+![态势总览](docs/images/dashboard-overview.png)
+
+**风控中心**:风险主体榜、实时告警、检测规则命中分布、异常流量时间线
+
+![风控中心](docs/images/dashboard-risk.png)
+
+**系统管理**:手动/自动黑名单管理、封禁倒计时、拦截统计与运行指标
+
+![系统管理](docs/images/dashboard-system.png)
+
+**指标口径弹窗**:每个指标的计算口径、窗口类型与阈值说明
+
+![指标口径](docs/images/metrics-dict.png)
+
+## 4. 核心功能
+
+- **数据接入与清洗**:JSON 解析 + 字段合法性校验;非法数据 → `museum_booking_error` topic + Redis 计数
+- **实时指标**:QPS/总量(10s、1min)、馆区/时段/客户端/结果/票数分布(5min 滑动窗口)、余票压力(keyed state 累计 ÷ 假设库存 20 万,可配)、热门时段 TOP、分钟趋势 + 秒级趋势 + 短窗口线性外推预测曲线
+- **异常检测(6 条规则)**:R1 单IP高频(10s/1s 滑动窗口 ≥15)、R2 单IP高票数(60s ≥40 张)、R3 成功率异常(≥10 请求且 ≥95%)、R4 固定会话高频(10s ≥12)、R5 网段突增(/24 网段 10s ≥30)、R6 私网地址聚集(/16 网段 30s ≥5);全部只依赖业务字段,不使用 `traffic_type` / `is_abnormal` 真值
+- **风险评分与告警**:按“命中规则种类”累加(单规则 30/25/25/20/20/20,同一规则反复命中不重复加分,上限 100),分级 中40/高60/严重80;同主体 60s(事件时间)冷却去重;自动封禁需评分 ≥60 且命中 ≥2 类规则(避免单规则误报直接封号),封禁 10 分钟自动解除,人工拉黑优先
+- **黑名单处置**:看板一键拉黑/解除,手动名单与自动名单分表展示;Flink 每 5s 热加载黑名单,命中请求实时拦截计数
+- **动态可视化**:3s 轮询刷新;余票压力条宽度 1.2s 补间 + 流光扫描 + 高压力脉冲,热门时段 TOP 条长与数值平滑过渡,趋势曲线 1.5s 补间并标注分钟峰值与最新点涟漪;无数据时显示占位提示而非空白图
+- **效果验证**:`scripts/evaluate.py` 对比检测结果与 `is_abnormal` 真值,输出精确率/召回率/误报率;窗口统计与离线核对误差
 
 ## 5. Kafka Topic 设计
 
@@ -92,9 +94,9 @@ python scripts/traffic_director.py --gen generator/museum_booking_gen.py --broke
 
 ## 6. 窗口与 Watermark 设计
 
-- EventTime 取 `event_ts_ms`,Watermark = 最大事件时间 − 5s(乱序容忍),分区空闲 30s 对齐;
-- 指标类:TumblingEventTime(1min/5min),窗口长度在吞吐与实时性间折中;
-- 检测类:SlidingEventTime(10s/1s 滑步、60s/5s 滑步),秒级滑步保证异常秒级发现;
+- EventTime 取 `event_ts_ms`,Watermark = 最大事件时间 − 2s(乱序容忍,`OUT_OF_ORDER_SEC` 可调),分区空闲 30s 对齐;
+- 指标类:1min 滚动窗口、5min 窗口(10s 滑步,保证大屏持续出数);
+- 检测类:SlidingEventTime(10s/1s 滑步、60s/5s 滑步、30s/5s 滑步),秒级滑步保证异常秒级发现;
 - `--time-scale 60` 加速演示时窗口随事件时间同步加速,逻辑不变。
 
 ## 7. Redis Key 设计(摘要)
@@ -107,8 +109,10 @@ python scripts/traffic_director.py --gen generator/museum_booking_gen.py --broke
 | metric:pressure | Hash | 馆区×时段余票压力 |
 | risk:subjects | ZSet | 风险主体榜(score=风险分) |
 | alerts:latest | List | 最新 200 条告警 |
-| stats:invalid / stats:blacklist_hits | String | 非法数据量 / 黑名单拦截量 |
-| blacklist:ips | Set | 黑名单 IP |
+| stats:invalid / stats:blacklist_hits / stats:auto_ban | String | 非法数据量 / 黑名单拦截量 / 自动封禁累计 |
+| blacklist:manual | Set | 人工封禁名单 |
+| blacklist:auto | ZSet | 自动封禁名单(score = 毫秒级到期时间戳) |
+| blacklist:ips | Set | 生效黑名单(手动 ∪ 未到期自动) |
 
 ## 8. 检测效果评估与测试
 
@@ -141,7 +145,7 @@ museum-rt-platform/
 ├── generator/              # 课程配套数据生成器(未修改)
 ├── scripts/                # 回放/评估/流量编排脚本
 ├── data/                   # 标注测试数据(2 万条)
-└── docs/                   # 设计文档 / 测试报告
+└── docs/                   # 设计文档 / 测试报告 / images(架构图与运行截图)
 ```
 
 ## 10. 常用运维命令

@@ -11,14 +11,12 @@
 # ============================================================
 set -e
 
-HOSTNAME=$(hostname)
-
 cat > /tmp/server.properties <<EOF
 broker.id=${KAFKA_BROKER_ID}
 zookeeper.connect=${KAFKA_ZOOKEEPER_CONNECT}
 zookeeper.connection.timeout.ms=18000
 listeners=INTERNAL://0.0.0.0:9092,HOST://0.0.0.0:${KAFKA_HOST_PORT}
-advertised.listeners=INTERNAL://${HOSTNAME}:9092,HOST://localhost:${KAFKA_HOST_PORT}
+advertised.listeners=INTERNAL://kafka${KAFKA_BROKER_ID}:9092,HOST://127.0.0.1:${KAFKA_HOST_PORT}
 listener.security.protocol.map=INTERNAL:PLAINTEXT,HOST:PLAINTEXT
 inter.broker.listener.name=INTERNAL
 num.network.threads=3

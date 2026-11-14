@@ -26,7 +26,9 @@ public class JobConfig implements Serializable {
     public long outOfOrderSec = Long.parseLong(env("OUT_OF_ORDER_SEC", "5"));
 
     // ---- 余票压力:每个馆区x时段的假设总库存(票数) ----
-    public int slotCapacity = Integer.parseInt(env("SLOT_CAPACITY", "10000"));
+    // 说明:不是真实库存扣减,只是"已预约票数 / 假设库存"的估算口径;
+    // 默认取 20 万,使 500 条/秒演示流量下压力曲线能持续爬升而不是几秒就顶到 100%。
+    public int slotCapacity = Integer.parseInt(env("SLOT_CAPACITY", "200000"));
 
     // ---- 异常检测阈值 ----
     /** R1 单 IP 10 秒滑动窗口请求数阈值 */
@@ -41,12 +43,20 @@ public class JobConfig implements Serializable {
     public int sessionFreqThreshold = Integer.parseInt(env("DETECT_SESSION_FREQ", "10"));
     /** R5 同 /24 网段 10 秒窗口请求数阈值 */
     public int subnetFreqThreshold = Integer.parseInt(env("DETECT_SUBNET_FREQ", "30"));
+    /** R6 私网 /16 网段 30 秒窗口请求数阈值 */
+    public int privateNetThreshold = Integer.parseInt(env("DETECT_PRIVATE_NET", "5"));
 
     // ---- 风险评分与告警 ----
     /** 告警触发评分阈值(达到"中"级) */
     public int alertScoreThreshold = Integer.parseInt(env("ALERT_SCORE_THRESHOLD", "40"));
     /** 同一主体告警冷却时间(事件时间,毫秒) */
     public long alertCooldownMs = Long.parseLong(env("ALERT_COOLDOWN_MS", "60000"));
+
+    // ---- 自动封禁 ----
+    /** 自动封禁评分阈值:告警达到该分(IP 主体)自动加入黑名单 */
+    public int autoBanScore = Integer.parseInt(env("AUTO_BAN_SCORE", "60"));
+    /** 自动封禁时长(墙钟毫秒),到期自动解除 */
+    public long autoBanDurationMs = Long.parseLong(env("AUTO_BAN_DURATION_MS", "600000"));
 
     // ---- 黑名单刷新周期(墙钟毫秒) ----
     public long blacklistRefreshMs = Long.parseLong(env("BLACKLIST_REFRESH_MS", "5000"));

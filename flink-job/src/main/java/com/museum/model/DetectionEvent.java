@@ -4,7 +4,7 @@ package com.museum.model;
  * 规则检测命中事件:某主体触发了某条异常规则。
  */
 public class DetectionEvent {
-    public String ruleCode;     // R1~R5
+    public String ruleCode;     // R1~R6
     public String ruleName;     // 规则名称
     public String subjectType;  // ip / session / subnet
     public String subject;      // 异常主体

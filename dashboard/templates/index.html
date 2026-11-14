@@ -7,51 +7,164 @@
 <style>
   :root {
     --gold: #d8b980;          /* 鎏金 */
-    --gold-bright: #efdcae;   /* 亮金 */
-    --gold-dim: rgba(216,185,128,.35);
+    --gold-bright: #f3e3bd;   /* 亮金 */
+    --gold-dim: rgba(216,185,128,.28);
     --vermilion: #e0644a;     /* 朱红 */
     --jade: #63c8be;          /* 青玉 */
-    --ink: rgba(7,12,24,.72); /* 玄色面板 */
-    --text: #e9e2cf;          /* 米白 */
-    --text-dim: #9aa7c2;
+    --ink: rgba(8,13,26,.78); /* 玄色面板 */
+    --text: #eae4d5;          /* 米白 */
+    --text-dim: #94a1bc;
+    --font-title: "STZhongsong","SimSun",serif;
+    --font-body: "Microsoft YaHei","PingFang SC","Hiragino Sans GB",sans-serif;
+    --font-num: "Bahnschrift","DIN Alternate","Consolas","Times New Roman",serif;
   }
   * { margin:0; padding:0; box-sizing:border-box; }
   html,body { width:100%; min-height:100%; }
   body {
-    font-family:"KaiTi","STKaiti","SimSun",serif;
+    font-family:var(--font-body);
     color:var(--text);
     background:
-      linear-gradient(rgba(5,9,20,.88) 0%, rgba(5,9,20,.74) 55%, rgba(5,9,20,.9) 100%),
+      radial-gradient(ellipse at 50% 30%, rgba(6,10,22,.62) 0%, rgba(5,8,18,.9) 62%, rgba(4,6,14,.96) 100%),
+      linear-gradient(rgba(5,9,20,.55) 0%, rgba(5,9,20,.5) 55%, rgba(4,7,16,.72) 100%),
       url("/static/bg_palace.jpg") center/cover no-repeat fixed;
     overflow-x:hidden;
+    -webkit-font-smoothing:antialiased;
   }
 
   /* ===================== 头部 ===================== */
-  header { padding:14px 30px 4px; text-align:center; position:relative; }
+  header { padding:16px 30px 6px; text-align:center; position:relative; }
   header h1 {
-    font-size:32px; letter-spacing:10px; font-weight:normal; color:var(--gold-bright);
-    text-shadow:0 0 24px rgba(216,185,128,.35);
+    font-family:var(--font-title); font-size:30px; letter-spacing:12px; font-weight:normal;
+    color:var(--gold-bright);
+    text-shadow:0 1px 0 rgba(0,0,0,.6), 0 0 28px rgba(216,185,128,.32);
   }
   header h1 .seal {
-    display:inline-block; background:var(--vermilion); color:#fff; font-size:15px;
-    letter-spacing:2px; padding:3px 8px; border-radius:3px; vertical-align:middle;
-    margin-right:14px; box-shadow:0 0 12px rgba(224,100,74,.5); font-family:"SimSun",serif;
+    display:inline-block; background:linear-gradient(160deg,#c9503a,#a83223); color:#fff;
+    font-size:14px; letter-spacing:2px; padding:3px 9px; border-radius:2px; vertical-align:middle;
+    margin-right:14px; box-shadow:0 2px 10px rgba(168,50,35,.55); font-family:var(--font-title);
   }
-  header .sub { margin-top:5px; font-size:13px; color:var(--gold); letter-spacing:5px; }
+  header .sub {
+    margin-top:7px; font-size:10.5px; color:rgba(216,185,128,.62);
+    letter-spacing:6px; font-family:var(--font-body);
+  }
   header .rule {
-    height:1px; margin:10px auto 0; width:78%;
-    background:linear-gradient(90deg,transparent,var(--gold),transparent);
+    height:1px; margin:12px auto 0; width:74%;
+    background:linear-gradient(90deg,transparent,rgba(216,185,128,.55),transparent);
   }
   header .time {
-    position:absolute; right:30px; top:20px; font-size:13px; color:var(--text-dim);
-    letter-spacing:1px; text-align:right; line-height:1.7;
+    position:absolute; right:30px; top:22px; font-size:12px; color:var(--text-dim);
+    letter-spacing:1px; text-align:right; line-height:1.8; font-family:var(--font-body);
   }
-  header .fullscreen-btn {
-    position:absolute; left:30px; top:24px; font-size:13px; letter-spacing:2px;
-    color:var(--gold); background:transparent; border:1px solid var(--gold-dim);
-    padding:5px 14px; cursor:pointer; border-radius:2px; font-family:inherit;
+  header .fullscreen-btn, header .dict-btn {
+    position:absolute; top:24px; font-size:12.5px; letter-spacing:2px;
+    color:var(--gold); background:rgba(216,185,128,.05); border:1px solid var(--gold-dim);
+    padding:6px 15px; cursor:pointer; border-radius:3px; font-family:var(--font-body);
+    transition:.2s;
   }
-  header .fullscreen-btn:hover { background:rgba(216,185,128,.15); }
+  header .fullscreen-btn { left:30px; }
+  header .dict-btn { left:130px; }
+  header .fullscreen-btn:hover, header .dict-btn:hover { background:rgba(216,185,128,.15); }
+
+  /* ===================== 指标口径弹窗(左目录 + 右内容) ===================== */
+  #dict-modal {
+    position:fixed; inset:0; z-index:200; display:none;
+    background:rgba(3,6,14,.82); backdrop-filter:blur(5px);
+  }
+  #dict-modal.open { display:flex; align-items:center; justify-content:center; }
+  #dict-box {
+    width:1080px; max-width:94vw; height:82vh; display:flex; flex-direction:column;
+    background:linear-gradient(160deg, rgba(15,23,44,.985), rgba(8,13,26,.99));
+    border:1px solid rgba(216,185,128,.45); border-radius:6px; overflow:hidden;
+    box-shadow:0 32px 90px rgba(0,0,0,.72), 0 0 0 1px rgba(216,185,128,.07) inset;
+  }
+  .dict-head {
+    display:flex; justify-content:space-between; align-items:flex-start;
+    padding:20px 26px 15px; border-bottom:1px solid rgba(216,185,128,.16);
+    background:linear-gradient(180deg, rgba(216,185,128,.07), transparent);
+  }
+  .dict-head h2 {
+    font-family:var(--font-title); color:var(--gold-bright); font-weight:normal;
+    letter-spacing:7px; font-size:23px;
+  }
+  .dict-head .dict-sub { margin-top:6px; font-size:12px; color:var(--text-dim); letter-spacing:1px; }
+  .dict-head .close-btn {
+    background:transparent; color:var(--gold); font-size:17px; line-height:1;
+    border:1px solid var(--gold-dim); border-radius:3px; width:32px; height:32px;
+    cursor:pointer; font-family:var(--font-body); transition:.2s;
+  }
+  .dict-head .close-btn:hover { background:rgba(216,185,128,.16); border-color:var(--gold); }
+  .dict-body { display:flex; flex:1; min-height:0; }
+  .dict-nav {
+    width:196px; flex-shrink:0; padding:14px 10px; overflow-y:auto;
+    display:flex; flex-direction:column; gap:3px;
+    border-right:1px solid rgba(216,185,128,.13); background:rgba(0,0,0,.18);
+  }
+  .dict-nav a {
+    color:var(--text-dim); font-size:13px; padding:9px 12px; border-radius:3px;
+    cursor:pointer; letter-spacing:1px; border-left:2px solid transparent; transition:.18s;
+  }
+  .dict-nav a:hover { color:var(--gold-bright); background:rgba(216,185,128,.07); }
+  .dict-nav a.on {
+    color:var(--gold-bright); border-left-color:var(--vermilion);
+    background:rgba(216,185,128,.1);
+  }
+  .dict-content { flex:1; overflow-y:auto; padding:4px 26px 24px; }
+  .dict-content section { padding-top:14px; }
+  .dict-content h4 {
+    color:var(--gold); font-weight:normal; letter-spacing:2px; font-size:16px;
+    margin:6px 0 10px; padding-bottom:6px; border-bottom:1px solid rgba(216,185,128,.18);
+  }
+  .dict-content h4::before { content:"◆ "; color:var(--vermilion); font-size:11px; }
+  .dict-content table {
+    width:100%; border-collapse:separate; border-spacing:0; font-size:13px;
+    border:1px solid rgba(216,185,128,.16); border-radius:4px; overflow:hidden;
+  }
+  .dict-content th {
+    color:var(--gold); font-weight:normal; letter-spacing:1px; white-space:nowrap;
+    background:rgba(216,185,128,.09); padding:8px 10px; text-align:left;
+    border-bottom:1px solid rgba(216,185,128,.18);
+  }
+  .dict-content td {
+    padding:8px 10px; line-height:1.65; color:var(--text);
+    border-bottom:1px solid rgba(216,185,128,.08); vertical-align:top;
+  }
+  .dict-content tr:last-child td { border-bottom:none; }
+  .dict-content tbody tr:hover td { background:rgba(216,185,128,.05); }
+  .dict-content td:first-child { color:var(--gold-bright); white-space:nowrap; }
+  .dict-content .note {
+    color:var(--text-dim); font-size:13px; line-height:1.9; margin-top:8px;
+    padding:10px 12px; border-left:2px solid rgba(216,185,128,.25);
+    background:rgba(216,185,128,.04); border-radius:0 3px 3px 0;
+  }
+  .dict-content .formula {
+    font-family:var(--font-num); color:var(--jade); font-size:12.5px; letter-spacing:.3px;
+  }
+
+  /* ===================== 面板问号与浮层提示 ===================== */
+  .panel h3 .tip-q {
+    float:right; width:17px; height:17px; line-height:15px; text-align:center;
+    color:var(--text-dim); font-size:12px; letter-spacing:0; font-family:var(--font-body);
+    border:1px solid rgba(216,185,128,.3); border-radius:50%; cursor:help;
+    transition:.18s; user-select:none;
+  }
+  .panel h3 .tip-q:hover, .panel h3 .tip-q.on {
+    color:#0b101d; background:var(--gold); border-color:var(--gold);
+  }
+  #tip-layer {
+    position:fixed; z-index:400; display:none; max-width:330px; pointer-events:none;
+    padding:10px 13px; font-size:12.5px; line-height:1.75; letter-spacing:.3px;
+    color:var(--text); font-family:var(--font-body);
+    background:rgba(11,18,34,.98); border:1px solid rgba(216,185,128,.42);
+    border-radius:4px; box-shadow:0 12px 34px rgba(0,0,0,.65);
+    animation:tipIn .16s ease-out;
+  }
+  #tip-layer b { color:var(--gold-bright); font-weight:600; }
+  #tip-layer::before {
+    content:""; position:absolute; top:-5px; right:12px; width:8px; height:8px;
+    background:rgba(11,18,34,.98); border-left:1px solid rgba(216,185,128,.42);
+    border-top:1px solid rgba(216,185,128,.42); transform:rotate(45deg);
+  }
+  @keyframes tipIn { from {opacity:0; transform:translateY(5px);} to {opacity:1;} }
 
   /* ===================== 页签导航 ===================== */
   nav { display:flex; justify-content:center; gap:10px; padding:12px 0 4px; }
@@ -104,9 +217,15 @@
   .span2 { grid-column:span 2; } .span3 { grid-column:span 3; } .span4 { grid-column:span 4; }
   .span5 { grid-column:span 5; } .span6 { grid-column:span 6; } .span7 { grid-column:span 7; }
   .span8 { grid-column:span 8; } .span12 { grid-column:span 12; }
-  .chart { width:100%; height:252px; }
-  .chart-lg { width:100%; height:300px; }
-  .chart-xl { width:100%; height:340px; }
+  .chart { width:100%; height:252px; position:relative; }
+  .chart-lg { width:100%; height:300px; position:relative; }
+  .chart-xl { width:100%; height:340px; position:relative; }
+  /* 无数据时隐藏 ECharts 空白占位图,改显"暂无数据"提示 */
+  .chart.empty canvas, .chart-lg.empty canvas, .chart-xl.empty canvas { visibility:hidden; }
+  .chart.empty::after, .chart-lg.empty::after, .chart-xl.empty::after {
+    content:'暂无数据 · 启动数据生成后自动刷新'; position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center; pointer-events:none;
+    color:var(--text-dim); font-size:12.5px; letter-spacing:2px; }
 
   /* ===================== 表格 ===================== */
   table { width:100%; border-collapse:collapse; font-size:13px; }
@@ -121,21 +240,88 @@
   }
   .btn:hover { background:rgba(216,185,128,.15); border-color:var(--gold); }
 
-  /* ===================== 告警横幅 ===================== */
-  #alert-banner {
-    position:fixed; top:0; left:0; right:0; z-index:99; display:none; padding:10px 30px;
-    background:linear-gradient(90deg,rgba(120,20,12,.95),rgba(180,40,25,.95),rgba(120,20,12,.95));
-    color:#ffe9d6; font-size:16px; letter-spacing:2px; text-align:center;
-    border-bottom:1px solid var(--vermilion); animation:blink 1s infinite alternate;
+  /* ===================== 操作反馈 Toast(底部居中) ===================== */
+  #toast {
+    position:fixed; bottom:26px; left:50%; transform:translateX(-50%); z-index:100;
+    padding:9px 26px; font-size:14px; letter-spacing:2px; border-radius:3px;
+    background:rgba(10,16,32,.96); border:1px solid var(--gold); color:var(--gold-bright);
+    display:none; box-shadow:0 8px 28px rgba(0,0,0,.55);
   }
-  @keyframes blink { from {opacity:1;} to {opacity:.78;} }
+  #toast.err { border-color:var(--vermilion); color:#ff9a8a; }
 
-  /* ===================== 压力条 ===================== */
+  /* ===================== 告警提示(右下角悬浮小卡,不再遮挡标题) ===================== */
+  #alert-banner {
+    position:fixed; right:20px; bottom:22px; z-index:99; display:none;
+    width:286px; padding:9px 12px 10px 12px;
+    background:linear-gradient(160deg, rgba(34,13,10,.97), rgba(18,8,8,.98));
+    border:1px solid rgba(224,100,74,.45); border-left:2px solid var(--vermilion);
+    border-radius:4px; box-shadow:0 14px 38px rgba(0,0,0,.65);
+    color:#ffe9d6; font-size:12.5px; line-height:1.65; letter-spacing:.5px;
+    cursor:pointer; animation:bannerIn .22s ease-out;
+  }
+  #alert-banner .ab-tag {
+    display:inline-block; color:#ffb4a4; font-size:11px; letter-spacing:1px;
+    padding:0 6px; margin-right:6px; border:1px solid rgba(224,100,74,.5);
+    border-radius:2px; background:rgba(224,100,74,.12);
+  }
+  #alert-banner .ab-body { color:var(--text); }
+  #alert-banner .ab-action { color:var(--jade); font-size:11.5px; }
+  #alert-banner .ab-close {
+    position:absolute; top:4px; right:7px; color:var(--text-dim); font-size:12px;
+    line-height:1; padding:2px 3px; transition:.15s;
+  }
+  #alert-banner .ab-close:hover { color:var(--vermilion); }
+  @keyframes bannerIn { from {opacity:0; transform:translateY(8px);} to {opacity:1;} }
+  #tip-layer.above::before { top:auto; bottom:-5px; transform:rotate(225deg); }
+
+  /* ===================== 实时请求流事件带 ===================== */
+  .ticker-band {
+    display:flex; align-items:center; gap:14px; margin:12px 30px 0;
+    padding:9px 16px; background:var(--ink); border:1px solid var(--gold-dim);
+    border-radius:2px; overflow:hidden; position:relative;
+  }
+  .ticker-title {
+    color:var(--gold); font-size:14px; letter-spacing:3px; white-space:nowrap;
+    border-right:1px solid var(--gold-dim); padding-right:14px;
+  }
+  .ticker-feed { flex:1; display:flex; gap:10px; overflow:hidden; }
+  .feed-item {
+    flex-shrink:0; font-size:13px; font-family:"SimSun",serif; white-space:nowrap;
+    color:var(--text); padding:3px 12px; border:1px solid rgba(216,185,128,.2);
+    border-radius:2px; background:rgba(216,185,128,.06);
+    animation:slidein .5s ease-out;
+  }
+  .feed-item .r-SUCCESS { color:#7fb069; } .feed-item .r-SOLD_OUT { color:var(--vermilion); }
+  .feed-item .r-QUEUED { color:#e6a23c; }
+  @keyframes slidein {
+    from { opacity:0; transform:translateX(30px); }
+    to { opacity:1; transform:translateX(0); }
+  }
+  .ticker-pulse {
+    width:8px; height:8px; border-radius:50%; background:var(--jade);
+    box-shadow:0 0 8px var(--jade); animation:pulse 1.2s infinite;
+  }
+  @keyframes pulse { 0%,100% {opacity:1;} 50% {opacity:.25;} }
+
+  /* KPI 涨跌箭头 */
+  .delta { font-size:14px; margin-left:6px; font-family:"SimSun",serif; }
+  .delta.up { color:#7fb069; } .delta.down { color:var(--vermilion); } .delta.flat { color:var(--text-dim); }
+
+  /* ===================== 压力条(条宽补间 + 流光) ===================== */
   .pressure-item { margin:10px 6px; font-size:14px; }
   .pressure-name { display:flex; justify-content:space-between; color:var(--text); }
   .pressure-name span:last-child { font-family:"Times New Roman",serif; color:var(--text-dim); }
-  .pressure-bar { background:rgba(216,185,128,.12); height:10px; margin-top:5px; overflow:hidden; border-radius:1px; }
-  .pressure-fill { height:100%; transition:width .8s; }
+  .pressure-name b { font-family:"Times New Roman",serif; color:var(--gold-bright); font-weight:normal; }
+  .pressure-bar { background:rgba(216,185,128,.12); height:11px; margin-top:5px; overflow:hidden; border-radius:1px; }
+  .pressure-fill { position:relative; height:100%; width:0; border-radius:1px;
+    transition:width 1.2s cubic-bezier(.25,.8,.25,1), background 1s, box-shadow .6s; }
+  /* 流光:让静态的压力条也有"在跑"的动态感 */
+  .pressure-fill::after { content:''; position:absolute; inset:0;
+    background:linear-gradient(100deg, transparent 20%, rgba(255,255,255,.45) 50%, transparent 80%);
+    transform:translateX(-100%); animation:barSheen 2.6s ease-in-out infinite; }
+  @keyframes barSheen { 0% { transform:translateX(-100%); } 55%,100% { transform:translateX(120%); } }
+  .pressure-fill.hot { animation:hotPulse 1.5s ease-in-out infinite; }
+  @keyframes hotPulse { 0%,100% { box-shadow:0 0 6px rgba(224,100,74,.5); } 50% { box-shadow:0 0 18px rgba(224,100,74,.95); } }
 
   /* ===================== 风控等级卡 ===================== */
   .lv-cards { display:flex; gap:14px; padding:10px 30px 2px; }
@@ -159,10 +345,13 @@
 </style>
 </head>
 <body>
-<div id="alert-banner"></div>
+<div id="alert-banner" onclick="this.style.display='none'"></div>
+<div id="tip-layer"></div>
+<div id="toast"></div>
 
 <header>
   <button class="fullscreen-btn" onclick="toggleFullscreen()">⛶ 全屏</button>
+  <button class="dict-btn" onclick="document.getElementById('dict-modal').classList.add('open')">ⓘ 指标口径</button>
   <div class="time">
     数据更新 <span id="update-time">--</span><br>
     每 3 秒自动刷新
@@ -181,27 +370,31 @@
 <!-- ==================== 页签 1:态势总览 ==================== -->
 <div class="page active" id="page-overview">
   <div class="cards">
-    <div class="card"><div class="label">实时 QPS(分钟窗)</div><div class="value" id="c-qps">--</div></div>
-    <div class="card"><div class="label">分钟预约总量</div><div class="value" id="c-total">--</div></div>
+    <div class="card"><div class="label">实时 QPS(10秒窗)</div><div class="value"><span id="c-qps">--</span><span class="delta flat" id="c-qps-d"></span></div></div>
+    <div class="card"><div class="label">分钟预约总量</div><div class="value"><span id="c-total">--</span><span class="delta flat" id="c-total-d"></span></div></div>
     <div class="card"><div class="label">累计处理请求</div><div class="value" id="c-processed">--</div></div>
-    <div class="card"><div class="label">预约成功率</div><div class="value" id="c-succ">--</div></div>
+    <div class="card"><div class="label">预约成功率</div><div class="value"><span id="c-succ">--</span><span class="delta flat" id="c-succ-d"></span></div></div>
     <div class="card warn"><div class="label">累计告警</div><div class="value" id="c-alerts">0</div></div>
   </div>
 
-  <div class="grid">
-    <!-- 左栏 -->
-    <div class="panel span3"><h3>馆区预约占比 · 5分钟窗</h3><div id="ch-venue" class="chart"></div></div>
-    <div class="panel span3" style="grid-row:span 2"><h3>客户端类型分布</h3><div id="ch-client" style="height:534px"></div></div>
+  <!-- 实时请求流:滚动事件带 -->
+  <div class="ticker-band">
+    <span class="ticker-title">实时请求流</span>
+    <div class="ticker-feed" id="ticker-feed"></div>
+    <span class="ticker-pulse" id="ticker-pulse"></span>
+  </div>
 
-    <!-- 中栏:主视觉 -->
+  <div class="grid">
+    <div class="panel span3"><h3>馆区预约占比 · 5分钟窗</h3><div id="ch-venue" class="chart"></div></div>
     <div class="panel span6"><h3>实时流量趋势(10秒级 × 分钟级)</h3><div id="ch-trend" class="chart-xl"></div></div>
     <div class="panel span3"><h3>参观时段分布</h3><div id="ch-slot" class="chart"></div></div>
+
     <div class="panel span3"><h3>预约结果分布</h3><div id="ch-result" class="chart"></div></div>
+    <div class="panel span6"><h3>客户端类型分布</h3><div id="ch-client" class="chart"></div></div>
     <div class="panel span3"><h3>单次预约票数分布</h3><div id="ch-ticket" class="chart"></div></div>
 
-    <!-- 底部 -->
     <div class="panel span6"><h3>热门时段 TOP 排行</h3><div id="ch-top" class="chart"></div></div>
-    <div class="panel span3"><h3>各馆区 × 时段余票压力</h3><div id="pressure-box" style="min-height:238px"></div></div>
+    <div class="panel span6"><h3>各馆区 × 时段余票压力(假设库存估算)</h3><div id="pressure-box" style="min-height:238px;display:grid;grid-template-columns:1fr 1fr;column-gap:18px"></div></div>
   </div>
 </div>
 
@@ -239,6 +432,7 @@
   <div class="cards">
     <div class="card warn"><div class="label">非法数据拦截</div><div class="value" id="s-invalid">0</div></div>
     <div class="card warn"><div class="label">黑名单拦截请求</div><div class="value" id="s-hits">0</div></div>
+    <div class="card warn"><div class="label">自动封禁(累计)</div><div class="value" id="s-autoban">0</div></div>
     <div class="card"><div class="label">黑名单 IP 数</div><div class="value" id="s-black">0</div></div>
     <div class="card"><div class="label">累计处理请求</div><div class="value" id="s-processed">0</div></div>
   </div>
@@ -250,9 +444,14 @@
         <input id="black-input" placeholder="输入 IP,如 10.66.1.1" style="flex:1;background:rgba(216,185,128,.08);border:1px solid var(--gold-dim);color:var(--text);padding:6px 10px;font-family:inherit;font-size:14px;border-radius:2px">
         <button class="btn" onclick="addBlackManual()">加入黑名单</button>
       </div>
-      <div style="max-height:420px;overflow-y:auto">
-        <table><thead><tr><th>IP 地址</th><th>操作</th></tr></thead>
+      <div style="max-height:200px;overflow-y:auto">
+        <table><thead><tr><th>手动封禁 IP</th><th>操作</th></tr></thead>
         <tbody id="blacklist-tbody"></tbody></table>
+      </div>
+      <h3 style="margin-top:14px">自动封禁(评分≥60 且命中≥2 类规则,10 分钟自动解除)</h3>
+      <div style="max-height:200px;overflow-y:auto">
+        <table><thead><tr><th>IP 地址</th><th>剩余封禁</th><th>操作</th></tr></thead>
+        <tbody id="autoban-tbody"></tbody></table>
       </div>
     </div>
     <div class="panel span6">
@@ -270,6 +469,107 @@
   </div>
 </div>
 
+<!-- ==================== 指标口径说明弹窗 ==================== -->
+<div id="dict-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div id="dict-box">
+    <div class="dict-head">
+      <div>
+        <h2>指 标 口 径 与 规 则 说 明</h2>
+        <div class="dict-sub">所有统计均基于事件时间(event_ts_ms)计算 · Watermark 乱序容忍 2 秒 · 不修改生成器字段语义</div>
+      </div>
+      <button class="close-btn" onclick="document.getElementById('dict-modal').classList.remove('open')">✕</button>
+    </div>
+    <div class="dict-body">
+      <div class="dict-nav">
+        <a class="on" data-sec="sec1">一、实时业务指标</a>
+        <a data-sec="sec2">二、流量预测曲线</a>
+        <a data-sec="sec3">三、异常检测规则 R1~R6</a>
+        <a data-sec="sec4">四、风险评分与告警</a>
+        <a data-sec="sec5">五、黑名单机制</a>
+      </div>
+      <div class="dict-content" id="dict-content">
+        <section id="sec1">
+    <h4>一、实时业务指标</h4>
+    <table>
+      <thead><tr><th>指标</th><th>计算口径</th><th>窗口</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td>实时 QPS</td><td class="formula">count(请求) ÷ 10</td><td>10s 滚动</td><td>每 10 秒出数,反映瞬时吞吐</td></tr>
+        <tr><td>分钟预约总量</td><td class="formula">count(请求)</td><td>1min 滚动</td><td>每分钟的预约请求总数</td></tr>
+        <tr><td>预约成功率</td><td class="formula">count(SUCCESS) ÷ count(*)</td><td>1min 滚动</td><td>正常水平约 86%,异常流量会显著抬高或拉低</td></tr>
+        <tr><td>馆区/时段/客户端/结果/票数分布</td><td class="formula">按维度 keyBy 后 count</td><td>5min 滚动</td><td>占比 = 该维度值数量 ÷ 窗口总量</td></tr>
+        <tr><td>余票压力</td><td class="formula">Σ 成功预约票数 ÷ 20 万(假设库存)</td><td>累计(keyed state)</td><td>每馆区×时段假设库存 20 万张,可在作业环境变量 SLOT_CAPACITY 调整;仅用于压力估算,不做真实库存扣减</td></tr>
+        <tr><td>热门时段 TOP</td><td class="formula">按 馆区×时段 count 排序取前 8</td><td>5min 滚动</td><td>实时滚动更新</td></tr>
+      </tbody>
+    </table>
+
+    </section>
+        <section id="sec2">
+    <h4>二、流量预测曲线(朱红虚线)</h4>
+    <table>
+      <thead><tr><th>项</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td>输入</td><td>最近 12 个 10 秒窗口计数(即最近 2 分钟)</td></tr>
+        <tr><td>方法</td><td class="formula">最小二乘线性回归:y = a + b·x,外推未来 6 个点(60 秒)</td></tr>
+        <tr><td>解读</td><td>反映流量的短期动量方向,用于预判放票爬升/回落趋势;属趋势外推,非精确预测</td></tr>
+      </tbody>
+    </table>
+
+    </section>
+        <section id="sec3">
+    <h4>三、异常流量检测规则(R1~R6)</h4>
+    <table>
+      <thead><tr><th>规则</th><th>定义</th><th>窗口</th><th>阈值</th><th>风险分</th><th>设计依据</th></tr></thead>
+      <tbody>
+        <tr><td>R1 单IP高频</td><td>同一 IP 请求数超阈值</td><td>10s 滑窗(1s 步)</td><td>≥ 15 次</td><td>30</td><td>正常用户操作间隔为秒级,10 秒内 15 次以上必为脚本</td></tr>
+        <tr><td>R2 单IP高票数</td><td>同一 IP 累计预约票数异常</td><td>60s 滑窗(5s 步)</td><td>≥ 40 张</td><td>25</td><td>正常用户单次 1~4 张,黄牛单 IP 高频刷大额单</td></tr>
+        <tr><td>R3 成功率异常</td><td>IP 成功率显著高于全局基线(86%)</td><td>60s 滑窗(5s 步)</td><td>≥ 10 次且成功率 ≥ 95%</td><td>25</td><td>机器人使用预售通道/重试逻辑,成功率接近 100%</td></tr>
+        <tr><td>R4 会话高频</td><td>同一 session_id 请求数超阈值</td><td>10s 滑窗(1s 步)</td><td>≥ 10 次</td><td>20</td><td>机器人复用同一会话连发请求</td></tr>
+        <tr><td>R5 网段突增</td><td>同一 /24 网段请求量突增</td><td>10s 滑窗(1s 步)</td><td>≥ 30 次</td><td>20</td><td>黄牛多账号集中于特定机房网段(如 10.66.x.x)</td></tr>
+        <tr><td>R6 私网网段聚集</td><td>同一私网 /16(10.x/172.16~31.x/192.168.x)请求聚集</td><td>30s 滑窗(5s 步)</td><td>≥ 5 次</td><td>20</td><td>公网预约服务正常用户不可能来自私网段,系黄牛机房代理特征</td></tr>
+      </tbody>
+    </table>
+
+    </section>
+        <section id="sec4">
+    <h4>四、风险评分与告警分级</h4>
+    <table>
+      <thead><tr><th>等级</th><th>评分区间</th><th>处置建议</th></tr></thead>
+      <tbody>
+        <tr><td class="lv-严重">严重</td><td>≥ 80</td><td>立即拉黑 + 人工复核</td></tr>
+        <tr><td class="lv-高">高</td><td>60 ~ 79</td><td>建议拉黑,持续观察</td></tr>
+        <tr><td class="lv-中">中</td><td>40 ~ 59</td><td>产生告警,列入风险榜</td></tr>
+        <tr><td class="lv-低">低</td><td>&lt; 40</td><td>仅记录风险分,不告警</td></tr>
+      </tbody>
+    </table>
+    <div class="note">
+      评分合成:按<b>命中的规则种类</b>累加,<span class="formula">评分 = min(100, Σ 各规则分)</span>;
+      同一规则重复命中只刷新有效期(5 分钟),<b>不重复加分</b>。<br>
+      这样设计的原因:检测窗口每秒滑动,单一弱特征(如小样本成功率偏高)会连续命中十余次,
+      若按次叠加,正常用户也会被推到封禁线。按规则种类计分后,单一规则最高 20~30 分,不会误告警。<br>
+      告警冷却:同一主体 60 秒(事件时间)内不重复告警,防止告警风暴;
+      告警记录完整写入 MySQL(触发时间/规则/主体/实测值/阈值/评分/等级)。
+    </div>
+
+    </section>
+        <section id="sec5">
+    <h4>五、黑名单机制(手动 + 自动双通道)</h4>
+    <div class="note">
+      <b>手动封禁</b>:风控中心告警列表 / 系统管理页手动加入,永久生效直至手动解除;
+      人工封禁优先于自动封禁,不会因自动封禁到期而被放行。<br>
+      <b>自动封禁</b>:IP 主体评分 ≥ 60 <b>且至少命中 2 类规则</b>时才自动拉黑
+      (单规则命中视为误报风险,仅告警不封禁)。
+      封禁判定<b>独立于告警去重冷却</b>(告警面向人去重降噪,封禁面向系统即时执行),
+      封禁 10 分钟后自动解除(倒计时见系统管理页),期间可随时人工提前解除。<br>
+      名单由 Flink 作业每 5 秒从 Redis 热加载,命中 IP 的请求<b>实时拦截</b>、
+      不再进入统计与检测链路,拦截量实时计数(stats:blacklist_hits);
+      解除后 5 秒内自动恢复通行,全程无需重启作业。
+    </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 const GOLD = '#d8b980', GOLD_B = '#efdcae', JADE = '#63c8be', VERM = '#e0644a',
       AXIS = '#8a97b8', SPLIT = 'rgba(216,185,128,.12)';
@@ -281,8 +581,18 @@ const tip = { backgroundColor:'rgba(10,16,32,.92)', borderColor:'rgba(216,185,12
 
 const charts = {};
 function mk(id){ if(charts[id]) return charts[id]; const c = echarts.init(document.getElementById(id)); charts[id]=c; return c; }
+/* 无数据占位:图表无任何数据时隐藏 ECharts 空白图形,统一显示"暂无数据" */
+function refreshEmptyHints(){
+  Object.keys(charts).forEach(id=>{
+    const ch = charts[id];
+    const series = ch.getOption().series || [];
+    const hasData = series.some(s=>Array.isArray(s.data) && s.data.length > 0);
+    ch.getDom().classList.toggle('empty', !hasData);
+  });
+}
 function fmtTime(ms){ return new Date(ms).toTimeString().slice(0,8); }
 let lastAlertKey = null;
+let bannerTimer = null;
 
 /* ---------- 页签切换 ---------- */
 function switchPage(name){
@@ -295,7 +605,7 @@ function toggleFullscreen(){
   else document.exitFullscreen();
 }
 
-/* ---------- 数字滚动动画 ---------- */
+/* ---------- 数字滚动动画 + 涨跌箭头 ---------- */
 function countUp(el, target, suffix){
   suffix = suffix || '';
   const from = parseFloat(el.dataset.v || '0') || 0;
@@ -310,10 +620,39 @@ function countUp(el, target, suffix){
   }
   requestAnimationFrame(step);
 }
-function setNum(id, v, suffix){
+function setNum(id, v, suffix, withDelta){
   const el = document.getElementById(id);
-  if(el) countUp(el, v, suffix);
+  if(!el) return;
+  const prev = parseFloat(el.dataset.v || '0') || 0;
+  countUp(el, v, suffix);
+  if(withDelta){
+    const dEl = document.getElementById(id + '-d');
+    if(dEl){
+      const diff = v - prev;
+      if(Math.abs(diff) < 0.05){ dEl.className = 'delta flat'; dEl.textContent = '·'; }
+      else if(diff > 0){ dEl.className = 'delta up'; dEl.textContent = '▲'; }
+      else { dEl.className = 'delta down'; dEl.textContent = '▼'; }
+    }
+  }
 }
+
+/* ---------- 实时请求流事件带(1.5s 轮询,内容变化才重绘) ---------- */
+let lastFeedHtml = '';
+async function refreshFeed(){
+  try {
+    const d = await fetch('/api/feed').then(r=>r.json());
+    const html = (d.events||[]).map(e=>{
+      const rTxt = e.r==='SUCCESS'?'成功':(e.r==='SOLD_OUT'?'售罄':'排队');
+      return `<span class="feed-item">${e.t} ${e.v}-${e.s} ${e.c} ${e.n}张 <span class="r-${e.r}">${rTxt}</span></span>`;
+    }).join('');
+    if(html !== lastFeedHtml){
+      document.getElementById('ticker-feed').innerHTML = html;
+      lastFeedHtml = html;
+    }
+  } catch(e){}
+}
+refreshFeed();
+setInterval(()=>{ if(!document.hidden) refreshFeed(); }, 1500);
 
 /* ---------- 数据刷新(页面隐藏时自动暂停) ---------- */
 let refreshTimer = null;
@@ -331,11 +670,16 @@ async function refresh(){
       fetch('/api/alerts').then(r=>r.json()),
       fetch('/api/blacklist').then(r=>r.json())
     ]);
+    if(apiFailCount){
+      const b = document.getElementById('alert-banner');
+      if(b.textContent.includes('接口异常')) b.style.display = 'none';
+    }
     apiFailCount = 0;
     document.getElementById('update-time').textContent = new Date().toLocaleString('zh-CN');
     renderOverview(m, a);
-    renderRisk(m, a);
+    renderRisk(m, a, bl);
     renderSystem(m, bl);
+    refreshEmptyHints();
   } catch(e) {
     console.error(e);
     if(++apiFailCount >= 3){
@@ -347,57 +691,85 @@ async function refresh(){
 }
 
 function renderOverview(m, a){
-  setNum('c-qps', m.qps.qps);
-  setNum('c-total', m.qps.count);
+  setNum('c-qps', m.qps.qps, '', true);
+  setNum('c-total', m.qps.count, '', true);
   setNum('c-processed', m.total_processed||0);
-  document.getElementById('c-succ').textContent = (m.qps.successRate*100).toFixed(1)+'%';
+  setNum('c-succ', Math.round((m.qps.successRate||0)*1000)/10, '%', true);
   setNum('c-alerts', m.total_alerts||0);
 
-  // 双曲线:10秒级(青玉) + 分钟级(鎏金)
+  // 三曲线:统一 time 时间轴,各序列自带时间戳,天然对齐
+  const line10s = (m.trend10s||[]).map(p=>[p.ts, p.count]);
+  const line1m  = (m.trend||[]).map(p=>[p.ts, p.count]);
+  const fcLine  = (m.forecast||[]).map(p=>[p.ts, p.count]);
+  if(line10s.length && fcLine.length){
+    fcLine.unshift([line10s[line10s.length-1][0], line10s[line10s.length-1][1]]);
+  }
   mk('ch-trend').setOption({
-    grid:{left:56,right:26,top:38,bottom:30},
+    animationDuration: 700, animationDurationUpdate: 1500, animationEasingUpdate: 'cubicOut',
+    grid:{left:56,right:56,top:38,bottom:30},
     tooltip:{trigger:'axis', ...tip},
-    legend:{top:0, textStyle:{color:AXIS}, data:['秒级流量(10s窗)','分钟总量(1m窗)']},
-    xAxis:[
-      {type:'category', data:m.trend10s.map(p=>fmtTime(p.ts)), ...axisX, splitLine:{show:false}},
-      {type:'category', data:m.trend.map(p=>fmtTime(p.ts)), show:false}
-    ],
+    legend:{top:0, textStyle:{color:AXIS}, data:['秒级流量(10s窗)','流量预测(外推60s)','分钟总量(1m窗)']},
+    xAxis:{type:'time', ...axisX, splitLine:{show:false},
+           axisLabel:{color:AXIS, fontFamily:'SimSun', formatter:(v)=>fmtTime(v)}},
     yAxis:{type:'value', ...axisX},
     series:[
-      {name:'秒级流量(10s窗)', type:'line', data:m.trend10s.map(p=>p.count), smooth:true,
-       symbol:'none', lineStyle:{color:JADE,width:2},
+      {name:'秒级流量(10s窗)', type:'line', data:line10s, smooth:true, showSymbol:false,
+       lineStyle:{color:JADE,width:2},
+       endLabel:{show:true, formatter:(p)=>p.value[1], color:JADE, fontSize:11,
+                 fontFamily:'"Times New Roman",serif', offset:[6,0]},
        areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,
          colorStops:[{offset:0,color:'rgba(99,200,190,.3)'},{offset:1,color:'rgba(99,200,190,0)'}]}}},
-      {name:'分钟总量(1m窗)', type:'line', xAxisIndex:1, data:m.trend.map(p=>p.count), smooth:true,
-       symbol:'circle', symbolSize:5, lineStyle:{color:GOLD,width:2}, itemStyle:{color:GOLD_B}}
+      {name:'流量预测(外推60s)', type:'line', data:fcLine, smooth:true, showSymbol:false,
+       lineStyle:{color:VERM,width:2,type:'dashed'},
+       areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,
+         colorStops:[{offset:0,color:'rgba(224,100,74,.18)'},{offset:1,color:'rgba(224,100,74,0)'}]}}},
+      {name:'分钟总量(1m窗)', type:'line', data:line1m, smooth:true,
+       symbol:'circle', symbolSize:5, lineStyle:{color:GOLD,width:2}, itemStyle:{color:GOLD_B},
+       endLabel:{show:true, formatter:(p)=>p.value[1], color:GOLD_B, fontSize:11,
+                 fontFamily:'"Times New Roman",serif', offset:[6,0]},
+       markPoint: line1m.length ? {
+         symbol:'pin', symbolSize:32, itemStyle:{color:VERM},
+         label:{color:'#fff', fontSize:10, formatter:(p)=>p.value[1]},
+         data:[{type:'max', name:'分钟峰值'}]} : {data:[]}},
+      {name:'最新点', type:'effectScatter', silent:true, tooltip:{show:false},
+       data: line10s.length ? [line10s[line10s.length-1]] : [],
+       symbolSize:9, itemStyle:{color:JADE},
+       rippleEffect:{period:1.6, scale:3.2, brushType:'stroke'}, zlevel:3}
     ]
   });
 
   mk('ch-venue').setOption({ color:[GOLD,'#8a9fd4'], tooltip:{...tip},
     legend:{bottom:0,textStyle:{color:AXIS}},
-    series:[{type:'pie', radius:['46%','68%'], center:['50%','44%'],
-             label:{...pieLabel, formatter:'{b}\n{d}%'}, itemStyle:{borderColor:'#0a101f',borderWidth:2},
+    series:[{type:'pie', radius:['42%','62%'], center:['50%','44%'],
+             label:{...pieLabel, fontSize:12, formatter:'{b}\n{d}%'},
+             labelLine:{length:8, length2:6},
+             itemStyle:{borderColor:'#0a101f',borderWidth:2},
              data:Object.entries(m.venue).map(([k,v])=>({name:k, value:v.count}))}] });
 
   mk('ch-slot').setOption({ color:['#e6a23c',JADE], tooltip:{...tip},
     legend:{bottom:0,textStyle:{color:AXIS}},
-    series:[{type:'pie', radius:['44%','66%'], center:['50%','44%'],
-             label:{...pieLabel, formatter:'{b} {d}%'}, itemStyle:{borderColor:'#0a101f',borderWidth:2},
+    series:[{type:'pie', radius:['38%','56%'], center:['50%','44%'],
+             label:{...pieLabel, fontSize:12, formatter:'{b}\n{d}%'},
+             labelLine:{length:8, length2:6},
+             itemStyle:{borderColor:'#0a101f',borderWidth:2},
              data:Object.entries(m.slot).map(([k,v])=>({name:k, value:v.count}))}] });
 
   const resMap = {SUCCESS:'成功', SOLD_OUT:'售罄', QUEUED:'排队'};
   mk('ch-result').setOption({ color:['#7fb069',VERM,'#e6a23c'], tooltip:{...tip},
     legend:{bottom:0,textStyle:{color:AXIS}},
-    series:[{type:'pie', radius:['44%','66%'], center:['50%','44%'],
-             label:{...pieLabel, formatter:'{b} {d}%'}, itemStyle:{borderColor:'#0a101f',borderWidth:2},
+    series:[{type:'pie', radius:['38%','56%'], center:['50%','44%'],
+             label:{...pieLabel, fontSize:12, formatter:'{b}\n{d}%'},
+             labelLine:{length:8, length2:6},
+             itemStyle:{borderColor:'#0a101f',borderWidth:2},
              data:Object.entries(m.result).map(([k,v])=>({name:resMap[k]||k, value:v.count}))}] });
 
   const clients = Object.entries(m.client).sort((a,b)=>b[1].count-a[1].count);
-  mk('ch-client').setOption({ grid:{left:140,right:24,top:10,bottom:24},
+  mk('ch-client').setOption({ grid:{left:140,right:24,top:10,bottom:34},
     tooltip:{...tip},
     xAxis:{type:'value', ...axisX},
-    yAxis:{type:'category', data:clients.map(c=>c[0]).reverse(), ...axisX, splitLine:{show:false}},
-    series:[{type:'bar', barWidth:16, data:clients.map(c=>c[1].count).reverse(),
+    yAxis:{type:'category', data:clients.map(c=>c[0]).reverse(), ...axisX, splitLine:{show:false},
+           axisLabel:{color:AXIS, fontFamily:'SimSun', margin:8}},
+    series:[{type:'bar', barWidth:14, data:clients.map(c=>c[1].count).reverse(),
              itemStyle:{color:{type:'linear',x:0,y:0,x2:1,y2:0,
                colorStops:[{offset:0,color:'rgba(99,200,190,.35)'},{offset:1,color:JADE}]}}}] });
 
@@ -410,60 +782,117 @@ function renderOverview(m, a){
              itemStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,
                colorStops:[{offset:0,color:GOLD_B},{offset:1,color:'rgba(216,185,128,.35)'}]}}}] });
 
+  // 热门时段 TOP:数值补间增长 + 名次变化时条长平滑过渡
   const tops = m.top.slice(0,8);
-  mk('ch-top').setOption({ grid:{left:110,right:34,top:8,bottom:24},
+  mk('ch-top').setOption({
+    animationDuration: 800, animationDurationUpdate: 1000, animationEasingUpdate: 'quinticInOut',
+    grid:{left:110,right:70,top:10,bottom:24},
     tooltip:{...tip},
     xAxis:{type:'value', ...axisX},
-    yAxis:{type:'category', data:tops.map(t=>t.name).reverse(), ...axisX, splitLine:{show:false}},
-    series:[{type:'bar', barWidth:14, data:tops.map(t=>t.count).reverse(),
-             label:{show:true, position:'right', color:AXIS, fontFamily:'SimSun'},
-             itemStyle:{color:{type:'linear',x:0,y:0,x2:1,y2:0,
-               colorStops:[{offset:0,color:'rgba(138,159,212,.5)'},{offset:1,color:GOLD}]}}}] });
+    yAxis:{type:'category', data:tops.map(t=>t.name).reverse(),
+           animationDuration:400, animationDurationUpdate:400,
+           ...axisX, splitLine:{show:false}},
+    series:[{type:'bar', barWidth:20, data:tops.map(t=>t.count).reverse(),
+             label:{show:true, position:'right', valueAnimation:true, color:AXIS,
+                    fontFamily:'SimSun', formatter:'{c}'},
+             itemStyle:{borderRadius:[0,2,2,0],
+               color:{type:'linear',x:0,y:0,x2:1,y2:0,
+                 colorStops:[{offset:0,color:'rgba(138,159,212,.5)'},{offset:1,color:GOLD}]}}}] });
 
-  document.getElementById('pressure-box').innerHTML =
-    Object.values(m.pressure).sort((a,b)=>b.ratio-a.ratio).map(p=>{
-      const pct = (p.ratio*100).toFixed(1);
-      const color = p.ratio>0.8 ? VERM : p.ratio>0.5 ? '#e6a23c' : JADE;
-      return `<div class="pressure-item"><div class="pressure-name">
-        <span>${p.display}</span><span>${p.booked} / ${p.capacity} · ${pct}%</span></div>
-        <div class="pressure-bar"><div class="pressure-fill" style="width:${Math.min(pct,100)}%;background:${color};box-shadow:0 0 8px ${color}"></div></div></div>`;
-    }).join('') || '<div style="color:var(--text-dim);padding:24px">暂无数据</div>';
+  renderPressure(m.pressure);
 }
 
-function renderRisk(m, a){
+/* ---------- 余票压力:复用 DOM 节点做条宽补间(重建节点会丢掉过渡动画) ---------- */
+const PRESSURE_ORDER = ['east|morning', 'east|afternoon', 'main|morning', 'main|afternoon'];
+const pressureNodes = {};
+
+function renderPressure(mp){
+  const box = document.getElementById('pressure-box');
+  const entries = Object.entries(mp || {});
+  if(!entries.length){
+    if(!box.dataset.empty){
+      box.innerHTML = '<div style="color:var(--text-dim);padding:24px">暂无数据</div>';
+      box.dataset.empty = '1';
+      Object.keys(pressureNodes).forEach(k=>delete pressureNodes[k]);
+    }
+    return;
+  }
+  if(box.dataset.empty){ box.innerHTML = ''; box.dataset.empty = ''; }
+
+  // 固定顺序展示,避免按压力重排导致进度条来回跳动
+  entries.sort((a,b)=>{
+    const ia = PRESSURE_ORDER.indexOf(a[0]), ib = PRESSURE_ORDER.indexOf(b[0]);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  });
+
+  entries.forEach(([key, p])=>{
+    let node = pressureNodes[key];
+    if(!node){
+      const root = document.createElement('div');
+      root.className = 'pressure-item';
+      root.innerHTML = '<div class="pressure-name"><span></span><span></span></div>'
+                     + '<div class="pressure-bar"><div class="pressure-fill"></div></div>';
+      box.appendChild(root);
+      node = pressureNodes[key] = {
+        name: root.querySelector('.pressure-name span:first-child'),
+        value: root.querySelector('.pressure-name span:last-child'),
+        fill: root.querySelector('.pressure-fill')
+      };
+      node.name.textContent = p.display;
+    }
+    const pct = Math.min(p.ratio * 100, 100);
+    const color = p.ratio > 0.8 ? VERM : p.ratio > 0.5 ? '#e6a23c' : JADE;
+    node.value.innerHTML = `<b>${p.booked}</b> / ${p.capacity} · ${pct.toFixed(1)}%`;
+    node.fill.style.width = pct + '%';
+    node.fill.style.background = `linear-gradient(90deg, ${color}88, ${color})`;
+    node.fill.classList.toggle('hot', p.ratio > 0.8);
+  });
+}
+
+function renderRisk(m, a, bl){
   const lv = a.levelStats||{};
   ['严重','高','中','低'].forEach(l=>document.getElementById('lv-'+l).textContent = lv[l]||0);
   document.getElementById('lv-total').textContent = m.total_alerts||0;
+
+  // 已自动封禁的 IP 集合:用于在告警列表里标出"已封禁",打通告警与处置链路
+  const autoIps = new Set(((bl&&bl.auto)||[]).map(x=>x.ip));
 
   document.getElementById('alert-tbody').innerHTML = a.latest.map(al=>`<tr>
     <td>${(al.alertTime||'').slice(5,19)}</td>
     <td class="lv-${al.riskLevel}">${al.riskLevel} · ${al.riskScore}</td>
     <td>${al.ruleCode} ${al.ruleName}</td>
-    <td>${al.subject}</td>
+    <td>${al.subject}${autoIps.has(al.subject)?' <span style="color:var(--vermilion);font-size:11px">[已自动封禁]</span>':''}</td>
     <td>${al.metricValue} / ${al.threshold}</td>
-    <td>${al.subjectType==='ip'?`<button class="btn" onclick="addBlack('${al.subject}')">加入黑名单</button>`:''}</td>
+    <td>${al.subjectType==='ip'&&!autoIps.has(al.subject)?`<button class="btn" onclick="addBlack('${al.subject}')">加入黑名单</button>`:''}</td>
   </tr>`).join('');
 
-  // 告警横幅
+  // 高风险告警:右下角小卡片提示(✕ 关闭 / 6 秒自动消失,不遮挡顶部标题)
   if(a.latest.length){
     const newest = a.latest[0];
     const key = newest.alertTime + newest.subject;
     if(lastAlertKey && key !== lastAlertKey){
       const banner = document.getElementById('alert-banner');
+      const banned = autoIps.has(newest.subject);
+      banner.innerHTML = `<span class="ab-close" onclick="event.stopPropagation();this.parentNode.style.display='none'">✕</span>
+        <span class="ab-tag">⚠ ${newest.riskLevel}风险</span><span class="ab-body">${newest.ruleName}</span>
+        <div class="ab-body" style="margin-top:3px;word-break:break-all">${newest.subject}</div>
+        <div style="color:var(--text-dim)">风险分 ${newest.riskScore} / 阈值 ${newest.threshold}</div>
+        ${banned?'<div class="ab-action">已自动封禁 · 10 分钟后解除</div>':''}`;
       banner.style.display='block';
-      banner.textContent = `⚠ ${newest.alertTime} 【${newest.riskLevel}】${newest.ruleName} —— 主体 ${newest.subject} 风险分 ${newest.riskScore}`;
-      setTimeout(()=>banner.style.display='none', 6000);
+      clearTimeout(bannerTimer);
+      bannerTimer = setTimeout(()=>{ banner.style.display='none'; }, 6000);
     }
     lastAlertKey = key;
   }
 
-  // 规则命中分布
-  const ruleNameMap = {R1:'单IP高频',R2:'单IP高票数',R3:'成功率异常',R4:'会话高频',R5:'网段突增'};
+  // 规则命中分布(标签含全部信息,不再叠加图例避免拥挤)
+  const ruleNameMap = {R1:'单IP高频',R2:'单IP高票数',R3:'成功率异常',R4:'会话高频',R5:'网段突增',R6:'私网网段聚集'};
   const rules = (a.ruleStats||[]).map(r=>({name:`${r.rule} ${ruleNameMap[r.rule]||r.name}`, value:r.count}));
-  mk('ch-rules').setOption({ color:[GOLD,JADE,VERM,'#8a9fd4','#e6a23c'], tooltip:{...tip},
-    legend:{bottom:0,textStyle:{color:AXIS}},
-    series:[{type:'pie', radius:['42%','66%'], center:['50%','44%'], roseType:'radius',
-             label:{...pieLabel, formatter:'{b}\n{c} 次'}, itemStyle:{borderColor:'#0a101f',borderWidth:2},
+  mk('ch-rules').setOption({ color:[GOLD,JADE,VERM,'#8a9fd4','#e6a23c','#c86a9e'], tooltip:{...tip},
+    series:[{type:'pie', radius:['36%','62%'], center:['50%','50%'], roseType:'radius',
+             label:{...pieLabel, fontSize:12, formatter:'{b}\n{c} 次'},
+             labelLine:{length:10, length2:8},
+             itemStyle:{borderColor:'#0a101f',borderWidth:2},
              data:rules}] });
 
   document.getElementById('risk-tbody').innerHTML = m.risk.map(rk=>
@@ -473,12 +902,25 @@ function renderRisk(m, a){
 function renderSystem(m, bl){
   setNum('s-invalid', m.invalid_count);
   setNum('s-hits', m.blacklist_hits);
+  setNum('s-autoban', m.auto_ban_count||0);
   setNum('s-black', bl.ips.length);
   setNum('s-processed', m.total_processed||0);
 
-  document.getElementById('blacklist-tbody').innerHTML = bl.ips.map(ip=>
+  const manual = bl.manual || bl.ips || [];
+  document.getElementById('blacklist-tbody').innerHTML = manual.map(ip=>
     `<tr><td>${ip}</td><td><button class="btn" onclick="delBlack('${ip}')">解除</button></td></tr>`).join('')
     || '<tr><td colspan="2" style="color:var(--text-dim)">名单为空</td></tr>';
+
+  const auto = bl.auto || [];
+  const autoRows = auto.slice(0, 50).map(a=>{
+    const min = Math.floor(a.remain/60), sec = a.remain%60;
+    return `<tr><td>${a.ip}</td><td style="color:#ff9a3d">${min}分${sec}秒</td>
+      <td><button class="btn" onclick="delBlack('${a.ip}')">提前解除</button></td></tr>`;
+  }).join('');
+  const autoMore = auto.length > 50
+    ? `<tr><td colspan="3" style="color:var(--text-dim)">仅显示最近 50 条,当前共 ${auto.length} 条</td></tr>` : '';
+  document.getElementById('autoban-tbody').innerHTML = (autoRows + autoMore)
+    || '<tr><td colspan="3" style="color:var(--text-dim)">暂无自动封禁</td></tr>';
 
   const chain = [
     ['数据生成器 → Kafka(museum_booking_raw)', m.qps.count>0],
@@ -491,12 +933,120 @@ function renderSystem(m, bl){
     `<div class="stat-line"><span>${name}</span><b style="color:${ok?'#7fb069':'#ff5a4d'}">${ok?'● 正常':'● 无数据'}</b></div>`).join('');
 }
 
-async function addBlack(ip){ await fetch('/api/blacklist',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ip})}); refresh(); }
+/* ---------- 操作反馈 Toast ---------- */
+let toastTimer = null;
+function toast(msg, isErr){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = isErr ? 'err' : '';
+  t.style.display = 'block';
+  if(toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.style.display='none', 2600);
+}
+
+async function addBlack(ip){
+  try {
+    const r = await fetch('/api/blacklist',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ip})});
+    if(r.ok){ toast(`已将 ${ip} 加入黑名单,Flink 将在 5 秒内热加载生效`); }
+    else { toast(`加入黑名单失败(${r.status})`, true); }
+  } catch(e){ toast('加入黑名单失败:接口异常', true); }
+  refresh();
+}
 async function addBlackManual(){
   const ip = document.getElementById('black-input').value.trim();
-  if(ip){ await addBlack(ip); document.getElementById('black-input').value=''; }
+  if(!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)){ toast('请输入合法的 IPv4 地址', true); return; }
+  await addBlack(ip);
+  document.getElementById('black-input').value='';
 }
-async function delBlack(ip){ await fetch('/api/blacklist/'+ip,{method:'DELETE'}); refresh(); }
+async function delBlack(ip){
+  try {
+    const r = await fetch('/api/blacklist/'+ip,{method:'DELETE'});
+    if(r.ok){ toast(`已将 ${ip} 移出黑名单`); }
+    else { toast(`解除失败(${r.status})`, true); }
+  } catch(e){ toast('解除失败:接口异常', true); }
+  refresh();
+}
+
+/* ---------- 面板标题悬停口径提示 ---------- */
+const PANEL_TIPS = {
+  '实时流量趋势(10秒级 × 分钟级)':'青玉线:10秒滚动窗口请求计数;朱红虚线:最近2分钟最小二乘外推未来60秒;鎏金线:1分钟窗口总量',
+  '馆区预约占比 · 5分钟窗':'口径:5分钟滚动窗口内,按馆区 keyBy 计数,占比=该馆数量÷窗口总量',
+  '参观时段分布':'口径:5分钟滚动窗口内,上午/下午预约请求数占比',
+  '预约结果分布':'口径:5分钟滚动窗口内,成功/售罄/排队的请求数占比;成功率=SUCCESS÷总量',
+  '客户端类型分布':'口径:5分钟滚动窗口内,各客户端类型请求数',
+  '单次预约票数分布':'口径:5分钟滚动窗口内,单次预约1~6张票的请求数分布',
+  '各馆区 × 时段余票压力(假设库存估算)':'口径:累计成功预约票数 ÷ 假设库存(默认 20 万,可配),超 80% 红色预警;不是真实库存扣减',
+  '热门时段 TOP 排行':'口径:5分钟窗口 馆区×时段 组合预约量排序,取前8',
+  '实时告警列表':'口径:风险评分≥40(中级)且过60秒冷却期即告警,写MySQL持久化',
+  '检测规则命中分布':'口径:R1~R6规则历史命中次数占比(玫瑰图)',
+  '风险主体榜 TOP10':'口径:全部命中规则主体的实时风险分排序,含未达告警线主体',
+  '黑名单管理':'机制:Flink每5秒热加载,命中IP请求实时拦截并计数,解除后自动恢复'
+};
+/* ---------- 面板标题问号:自定义浮层(不用原生 title,避免 1 秒延迟与错位) ---------- */
+const tipLayer = document.getElementById('tip-layer');
+let tipTimer = null, tipLocked = false, tipAnchor = null;
+
+function showTip(anchor, text){
+  tipAnchor = anchor;
+  tipLayer.innerHTML = text;
+  tipLayer.style.display = 'block';
+  const r = anchor.getBoundingClientRect();
+  const w = tipLayer.offsetWidth, h = tipLayer.offsetHeight;
+  let left = Math.max(10, Math.min(r.right - w - 4, window.innerWidth - w - 10));
+  let top = r.bottom + 9;
+  const above = (top + h > window.innerHeight - 10);
+  if(above) top = Math.max(10, r.top - h - 9);
+  tipLayer.classList.toggle('above', above);
+  tipLayer.style.left = left + 'px';
+  tipLayer.style.top = top + 'px';
+  anchor.classList.add('on');
+}
+function hideTip(){
+  if(tipLocked) return;
+  clearTimeout(tipTimer);
+  tipLayer.style.display = 'none';
+  if(tipAnchor){ tipAnchor.classList.remove('on'); tipAnchor = null; }
+}
+document.querySelectorAll('.panel h3').forEach(h=>{
+  const key = h.textContent.replace('◆ ','').trim();
+  const t = PANEL_TIPS[key];
+  if(!t) return;
+  const q = document.createElement('span');
+  q.className = 'tip-q';
+  q.textContent = '?';
+  h.appendChild(q);
+  q.addEventListener('mouseenter', ()=>{ clearTimeout(tipTimer); tipTimer = setTimeout(()=>showTip(q, t), 120); });
+  q.addEventListener('mouseleave', ()=>{ clearTimeout(tipTimer); hideTip(); });
+  q.addEventListener('click', e=>{
+    e.stopPropagation();
+    if(tipLocked && tipAnchor === q){ tipLocked = false; hideTip(); return; }
+    tipLocked = true; showTip(q, t);
+  });
+});
+document.addEventListener('click', ()=>{ if(tipLocked){ tipLocked = false; hideTip(); } });
+window.addEventListener('scroll', ()=>{ if(!tipLocked) hideTip(); }, true);
+
+/* ---------- 指标口径弹窗:目录点击跳转 + 滚动高亮 ---------- */
+(function(){
+  const content = document.getElementById('dict-content');
+  const links = Array.from(document.querySelectorAll('.dict-nav a'));
+  const secs = links.map(a=>document.getElementById(a.dataset.sec));
+  const relTop = el => content.scrollTop + el.getBoundingClientRect().top - content.getBoundingClientRect().top;
+  const mark = i => links.forEach((a, k)=>a.classList.toggle('on', k === i));
+  links.forEach((a, i)=>a.addEventListener('click', ()=>{
+    const sec = secs[i];
+    if(sec) content.scrollTo({top:Math.max(0, relTop(sec) - 6), behavior:'smooth'});
+    mark(i);
+  }));
+  content.addEventListener('scroll', ()=>{
+    const y = content.scrollTop + 24;
+    let idx = 0;
+    secs.forEach((s, i)=>{ if(s && relTop(s) <= y) idx = i; });
+    mark(idx);
+  });
+  const btn = document.querySelector('.dict-btn');
+  if(btn) btn.addEventListener('click', ()=>{ content.scrollTop = 0; mark(0); });
+})();
 
 refresh();
 startLoop();

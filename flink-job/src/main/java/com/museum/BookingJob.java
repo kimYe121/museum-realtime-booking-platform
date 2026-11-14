@@ -35,7 +35,7 @@ import java.time.Duration;
  *              → EventTime + Watermark
  *              → 实时指标(7 类窗口聚合 → Redis,部分 → MySQL)
  *              → 余票压力(keyed state 累计 → Redis)
- *              → 异常检测 R1~R5 → 风险评分+冷却 → 告警(Redis + MySQL)
+ *              → 异常检测 R1~R6 → 风险评分+冷却 → 告警(Redis + MySQL)
  */
 public class BookingJob {
 
@@ -76,6 +76,11 @@ public class BookingJob {
                 .addSink(new RedisSinks.Counter(cfg, "stats:blacklist_hits"))
                 .name("blacklist-hit-count");
 
+        // 实时请求流:2% 抽样事件 → Redis(大屏滚动事件带)
+        valid.filter(e -> Math.abs(e.requestId.hashCode()) % 50 == 0)
+                .addSink(new RedisSinks.EventFeed(cfg))
+                .name("redis-event-feed");
+
         // ============ 3. EventTime + Watermark ============
         DataStream<BookingEvent> timed = valid.assignTimestampsAndWatermarks(
                 WatermarkStrategy.<BookingEvent>forBoundedOutOfOrderness(
@@ -100,41 +105,43 @@ public class BookingJob {
                 .aggregate(agg, new MetricAggregate.Wrap("qps10s"))
                 .addSink(new RedisSinks.Trend10s(cfg)).name("redis-trend-10s");
 
-        // 4.2 分馆区(5 分钟滚动窗口) → Redis + MySQL(准确性核对)
+        // 4.2 分馆区(5 分钟窗口 / 10 秒滑动步长) → Redis + MySQL(准确性核对)
+        //     窗口长度满足"5 分钟"口径;用滑动步长让结果每 10 秒输出一次,
+        //     避免看板在滚动窗口边界前长时间无数据
         SingleOutputStreamOperator<MetricResult> venue = timed
                 .keyBy(e -> e.venueName)
-                .window(TumblingEventTimeWindows.of(Time.minutes(5)))
+                .window(SlidingEventTimeWindows.of(Time.minutes(5), Time.seconds(10)))
                 .aggregate(agg, new MetricAggregate.Wrap("venue_5m"));
         venue.addSink(new RedisSinks.MetricHash(cfg)).name("redis-venue");
         venue.addSink(new JdbcSinks.WindowStats(cfg)).name("mysql-venue-snapshot");
 
-        // 4.3 分时段
+        // 4.3 分时段(5 分钟窗口 / 10 秒滑动)
         timed.keyBy(e -> e.timeSlotName)
-                .window(TumblingEventTimeWindows.of(Time.minutes(5)))
+                .window(SlidingEventTimeWindows.of(Time.minutes(5), Time.seconds(10)))
                 .aggregate(agg, new MetricAggregate.Wrap("slot"))
                 .addSink(new RedisSinks.MetricHash(cfg)).name("redis-slot");
 
-        // 4.4 客户端类型分布
+        // 4.4 客户端类型分布(5 分钟窗口 / 10 秒滑动)
         timed.keyBy(e -> e.clientType)
-                .window(TumblingEventTimeWindows.of(Time.minutes(5)))
+                .window(SlidingEventTimeWindows.of(Time.minutes(5), Time.seconds(10)))
                 .aggregate(agg, new MetricAggregate.Wrap("client"))
                 .addSink(new RedisSinks.MetricHash(cfg)).name("redis-client");
 
-        // 4.5 预约结果分布
+        // 4.5 预约结果分布(5 分钟窗口 / 10 秒滑动)
         timed.keyBy(e -> e.result)
-                .window(TumblingEventTimeWindows.of(Time.minutes(5)))
+                .window(SlidingEventTimeWindows.of(Time.minutes(5), Time.seconds(10)))
                 .aggregate(agg, new MetricAggregate.Wrap("result"))
                 .addSink(new RedisSinks.MetricHash(cfg)).name("redis-result");
 
-        // 4.6 单次预约票数分布
+        // 4.6 单次预约票数分布(5 分钟窗口 / 10 秒滑动)
         timed.keyBy(e -> String.valueOf(e.ticketCount))
-                .window(TumblingEventTimeWindows.of(Time.minutes(5)))
+                .window(SlidingEventTimeWindows.of(Time.minutes(5), Time.seconds(10)))
                 .aggregate(agg, new MetricAggregate.Wrap("ticket_dist"))
                 .addSink(new RedisSinks.MetricHash(cfg)).name("redis-ticket-dist");
 
-        // 4.7 馆区x时段预约量(热门时段 TOP 排行数据源)
+        // 4.7 馆区x时段预约量(5 分钟窗口 / 10 秒滑动,热门时段 TOP 排行数据源)
         timed.keyBy(BookingEvent::venueSlotName)
-                .window(TumblingEventTimeWindows.of(Time.minutes(5)))
+                .window(SlidingEventTimeWindows.of(Time.minutes(5), Time.seconds(10)))
                 .aggregate(agg, new MetricAggregate.Wrap("venueslot"))
                 .addSink(new RedisSinks.MetricHash(cfg)).name("redis-venueslot");
 
@@ -144,33 +151,40 @@ public class BookingJob {
                 .name("pressure")
                 .addSink(new RedisSinks.Pressure(cfg)).name("redis-pressure");
 
-        // ============ 5. 异常流量检测 R1~R5 ============
+        // ============ 5. 异常流量检测 R1~R6(聚合态,低内存) ============
         DataStream<DetectionEvent> r1 = timed
                 .keyBy(e -> e.ip)
                 .window(SlidingEventTimeWindows.of(Time.seconds(10), Time.seconds(1)))
-                .process(new DetectFunctions.IpFreqDetect(cfg));
+                .aggregate(agg, new DetectFunctions.IpFreqDetect(cfg));
 
         DataStream<DetectionEvent> r2 = timed
                 .keyBy(e -> e.ip)
                 .window(SlidingEventTimeWindows.of(Time.seconds(60), Time.seconds(5)))
-                .process(new DetectFunctions.IpTicketDetect(cfg));
+                .aggregate(agg, new DetectFunctions.IpTicketDetect(cfg));
 
         DataStream<DetectionEvent> r3 = timed
                 .keyBy(e -> e.ip)
                 .window(SlidingEventTimeWindows.of(Time.seconds(60), Time.seconds(5)))
-                .process(new DetectFunctions.SuccRateDetect(cfg));
+                .aggregate(agg, new DetectFunctions.SuccRateDetect(cfg));
 
         DataStream<DetectionEvent> r4 = timed
                 .keyBy(e -> e.sessionId)
                 .window(SlidingEventTimeWindows.of(Time.seconds(10), Time.seconds(1)))
-                .process(new DetectFunctions.SessionFreqDetect(cfg));
+                .aggregate(agg, new DetectFunctions.SessionFreqDetect(cfg));
 
         DataStream<DetectionEvent> r5 = timed
                 .keyBy(BookingEvent::subnet24)
                 .window(SlidingEventTimeWindows.of(Time.seconds(10), Time.seconds(1)))
-                .process(new DetectFunctions.SubnetSurgeDetect(cfg));
+                .aggregate(agg, new DetectFunctions.SubnetSurgeDetect(cfg));
 
-        DataStream<DetectionEvent> detections = r1.union(r2, r3, r4, r5);
+        // R6 私网/机房网段聚集(黄牛多账号特征)
+        DataStream<DetectionEvent> r6 = timed
+                .filter(BookingEvent::isPrivateNet)
+                .keyBy(BookingEvent::subnet16)
+                .window(SlidingEventTimeWindows.of(Time.seconds(30), Time.seconds(5)))
+                .aggregate(agg, new DetectFunctions.PrivateNetDetect(cfg));
+
+        DataStream<DetectionEvent> detections = r1.union(r2, r3, r4, r5, r6);
 
         // ============ 6. 风险评分 + 告警(冷却去重) ============
         SingleOutputStreamOperator<AlertEvent> alerts = detections
@@ -184,6 +198,10 @@ public class BookingJob {
         // 风险榜(含未达告警线主体)
         alerts.getSideOutput(RiskScoreProcessFunction.SCORE_TAG)
                 .addSink(new RedisSinks.RiskBoard(cfg)).name("redis-risk-board");
+
+        // 自动封禁指令(与告警冷却解耦,IP 评分达封禁线即下发)
+        alerts.getSideOutput(RiskScoreProcessFunction.BAN_TAG)
+                .addSink(new RedisSinks.AutoBan(cfg)).name("redis-auto-ban");
 
         env.execute("museum-booking-realtime-job");
     }

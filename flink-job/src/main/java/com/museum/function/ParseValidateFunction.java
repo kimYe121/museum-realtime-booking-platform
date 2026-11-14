@@ -56,6 +56,19 @@ public class ParseValidateFunction extends ProcessFunction<String, BookingEvent>
             if (jedis == null) {
                 jedis = new Jedis(cfg.redisHost, cfg.redisPort, 2000);
             }
+            // 自动封禁到期解除:清理 blacklist:auto 中已过期的 IP
+            long now = System.currentTimeMillis();
+            java.util.List<String> expired = jedis.zrangeByScore("blacklist:auto", 0, now);
+            if (expired != null && !expired.isEmpty()) {
+                // 人工封禁优先:同一 IP 若还在手动名单里,不能随自动封禁到期一起放行
+                Set<String> manual = jedis.smembers("blacklist:manual");
+                for (String ip : expired) {
+                    if (manual == null || !manual.contains(ip)) {
+                        jedis.srem("blacklist:ips", ip);
+                    }
+                }
+                jedis.zremrangeByScore("blacklist:auto", 0, now);
+            }
             Set<String> ips = jedis.smembers("blacklist:ips");
             blacklist = (ips == null) ? new HashSet<>() : new HashSet<>(ips);
             lastRefresh = System.currentTimeMillis();

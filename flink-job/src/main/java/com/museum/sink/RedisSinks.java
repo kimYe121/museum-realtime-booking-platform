@@ -118,7 +118,11 @@ public class RedisSinks {
         }
     }
 
-    /** 告警 → LIST:alerts:latest(最新在前,保留 200 条) */
+    /**
+     * 告警 → LIST:alerts:latest(最新在前,保留 200 条)。
+     * 自动封禁不在这里做:告警有 60s 去重冷却,封禁必须即时且可续期,
+     * 因此由 RiskScoreProcessFunction 的 BAN_TAG 侧输出交给 AutoBan 处理。
+     */
     public static class Alerts extends Base<AlertEvent> {
         public Alerts(JobConfig cfg) { super(cfg); }
 
@@ -126,6 +130,47 @@ public class RedisSinks {
         public void invoke(AlertEvent a, Context context) {
             safe(j -> j.lpush("alerts:latest", a.toJson()));
             safe(j -> j.ltrim("alerts:latest", 0, 199));
+        }
+    }
+
+    /**
+     * 自动封禁 → blacklist:ips(Set) + blacklist:auto(ZSet,score=到期时间戳)。
+     * 重复指令只续期不重复计数;到期由 ParseValidateFunction 的周期刷新解除。
+     */
+    public static class AutoBan extends Base<String> {
+        public AutoBan(JobConfig cfg) { super(cfg); }
+
+        @Override
+        public void invoke(String line, Context context) {
+            String[] parts = line.split("\\|", 2);
+            if (parts.length < 2 || parts[0].isEmpty()) return;
+            String ip = parts[0];
+            long expireAt = System.currentTimeMillis() + cfg.autoBanDurationMs;
+            safe(j -> {
+                // 人工封禁优先:已在手动名单中的 IP 不再写自动到期记录,避免 10 分钟后被自动放行
+                if (Boolean.TRUE.equals(j.sismember("blacklist:manual", ip))) return;
+                Double prev = j.zscore("blacklist:auto", ip);
+                j.sadd("blacklist:ips", ip);
+                j.zadd("blacklist:auto", expireAt, ip);
+                if (prev == null) {
+                    j.incr("stats:auto_ban");   // 仅首次封禁计数
+                }
+            });
+        }
+    }
+
+    /** 实时请求流:抽样事件 → LIST:stream:latest(保留 30 条,供大屏滚动事件带) */
+    public static class EventFeed extends Base<com.museum.model.BookingEvent> {
+        public EventFeed(JobConfig cfg) { super(cfg); }
+
+        @Override
+        public void invoke(com.museum.model.BookingEvent e, Context context) {
+            String json = String.format(
+                    "{\"t\":\"%s\",\"v\":\"%s\",\"s\":\"%s\",\"c\":\"%s\",\"n\":%d,\"r\":\"%s\"}",
+                    e.eventTime.length() >= 19 ? e.eventTime.substring(11, 19) : e.eventTime,
+                    e.venueName, e.timeSlotName, e.clientType, e.ticketCount, e.result);
+            safe(j -> j.lpush("stream:latest", json));
+            safe(j -> j.ltrim("stream:latest", 0, 29));
         }
     }
 

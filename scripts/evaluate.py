@@ -64,16 +64,17 @@ def load_ground_truth(path):
 
 
 def mysql_query(sql):
-    cmd = ["docker", "exec", "mysql", "mysql", "-uroot", "-proot123",
-           "museum", "--default-character-set=utf8mb4", "-N", "-B", "-e", sql]
-    out = subprocess.run(cmd, capture_output=True, text=True)
-    if out.returncode != 0:
-        raise RuntimeError(out.stderr)
-    rows = []
-    for line in out.stdout.strip().splitlines():
-        if line:
-            rows.append(line.split("\t"))
-    return rows
+    """通过 pymysql 直连容器 MySQL(127.0.0.1:13306)"""
+    import pymysql
+    conn = pymysql.connect(host="127.0.0.1", port=13306, user="root",
+                           password="root123", database="museum",
+                           charset="utf8mb4")
+    try:
+        with conn.cursor() as cur:
+            cur.execute(sql)
+            return [list(r) for r in cur.fetchall()]
+    finally:
+        conn.close()
 
 
 def evaluate_detection(gt, min_alert_id):
@@ -94,8 +95,15 @@ def evaluate_detection(gt, min_alert_id):
         elif stype == "subnet":
             subnet_alerts += 1
             subnet = subject.replace(".0/24", "")
-            # 网段告警:该网段内的真实异常 IP 记为检出
+            # /24 网段告警:该网段内的真实异常 IP 记为检出
             detected_ips |= gt["abnormal_ip_subnets"].get(subnet, set())
+        elif stype == "subnet16":
+            subnet_alerts += 1
+            prefix = subject.replace(".0.0/16", "")
+            # /16 网段告警:该 /16 下所有 /24 的真实异常 IP 记为检出
+            for sub, ips in gt["abnormal_ip_subnets"].items():
+                if sub.startswith(prefix + "."):
+                    detected_ips |= ips
 
     ab, nm = gt["abnormal_ips"], gt["normal_ips"]
     tp = len(detected_ips & ab)
@@ -126,11 +134,13 @@ def evaluate_accuracy(gt):
     rows = mysql_query(
         "SELECT window_end, req_count FROM window_stats WHERE window_type='qps_1m'")
     db = {}
+    import datetime
     for wend, cnt in rows:
         # window_end 是窗口结束时间,对应离线窗口起点 = end - 60000
-        import datetime
-        t = datetime.datetime.strptime(wend, "%Y-%m-%d %H:%M:%S.%f")
-        ms = int(t.timestamp() * 1000) - 60000
+        # JDBC 按 UTC 写入 DATETIME,这里按 UTC 解释回 epoch
+        if isinstance(wend, str):
+            wend = datetime.datetime.strptime(wend, "%Y-%m-%d %H:%M:%S.%f")
+        ms = int(wend.replace(tzinfo=datetime.timezone.utc).timestamp() * 1000) - 60000
         db[ms] = int(cnt)
 
     diffs = []

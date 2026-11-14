@@ -124,12 +124,16 @@ services:
       - "8081:8081"
     environment:
       JOB_MANAGER_RPC_ADDRESS: flink-jobmanager
+      # 作业参数:乱序容忍 2s(端到端延迟 ≤5s 的关键配置)
+      OUT_OF_ORDER_SEC: "2"
       FLINK_PROPERTIES: |
         jobmanager.rpc.address: flink-jobmanager
         rest.bind-address: 0.0.0.0
         parallelism.default: 4
-        execution.checkpointing.interval: 30s
+        execution.checkpointing.interval: 60s
         state.backend.type: hashmap
+        state.checkpoints.dir: file:///opt/flink/checkpoints
+        state.checkpoints.num-retained: 3
     volumes:
       - flink-checkpoints:/opt/flink/checkpoints
       - ./flink-job/target:/opt/jobs
@@ -148,10 +152,12 @@ services:
       FLINK_PROPERTIES: |
         jobmanager.rpc.address: flink-jobmanager
         taskmanager.numberOfTaskSlots: 2
-        taskmanager.memory.process.size: 1600m
+        taskmanager.memory.process.size: 2200m
+        # hashmap 状态后端不使用 managed memory,置 0 把 690MB 全部还给 task heap
+        taskmanager.memory.managed.fraction: 0
     volumes:
       - flink-checkpoints:/opt/flink/checkpoints
-    mem_limit: 1900m
+    mem_limit: 2500m
     cpus: 2.0
 
   flink-taskmanager2:
@@ -166,10 +172,12 @@ services:
       FLINK_PROPERTIES: |
         jobmanager.rpc.address: flink-jobmanager
         taskmanager.numberOfTaskSlots: 2
-        taskmanager.memory.process.size: 1600m
+        taskmanager.memory.process.size: 2200m
+        # hashmap 状态后端不使用 managed memory,置 0 把 690MB 全部还给 task heap
+        taskmanager.memory.managed.fraction: 0
     volumes:
       - flink-checkpoints:/opt/flink/checkpoints
-    mem_limit: 1900m
+    mem_limit: 2500m
     cpus: 2.0
 
   # ---------------- 存储层 ----------------
@@ -180,7 +188,7 @@ services:
     networks: [rtnet]
     command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
     ports:
-      - "6379:6379"
+      - "16379:6379"   # 避开宿主机本地 Redis 的 6379 端口占用
     mem_limit: 320m
     cpus: 0.5
 
@@ -190,7 +198,9 @@ services:
     restart: unless-stopped
     networks: [rtnet]
     ports:
-      - "3306:3306"
+      - "13306:3306"   # 避开宿主机本地 MySQL 的 3306 端口占用
+    # 跳过客户端反向 DNS 解析,否则每次 TCP 连接握手阻塞数十秒
+    command: mysqld --skip-name-resolve
     environment:
       MYSQL_ROOT_PASSWORD: root123
       MYSQL_DATABASE: museum
